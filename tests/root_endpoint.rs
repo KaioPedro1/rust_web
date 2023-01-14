@@ -7,19 +7,19 @@ async fn root_check_endpoint_get_return_200_or_304(){
     let address:String = init_app().await.address;
     let client:Client= reqwest::Client::new();
     let response:Response= client.get(&format!("{}/", address))
-                                .send()
-                                .await
-                                .expect("Test failed");
+        .send()
+        .await
+        .expect("Test failed");
     assert!(response.status().is_success());
     assert_eq!(response.headers().get("content-type").unwrap(), "text/html; charset=utf-8");
 }
 #[tokio::test]
 async fn root_check_valid_endpoint_post_return_200(){
-    let address:String = init_app().await.address;
+    let app = init_app().await;
     let client:Client= reqwest::Client::new();
-    let body="name=cleber&email=clebinho_bandidao%40gmail.com";
+    let body="name=cleber";
 
-    let response:Response= client.post(&format!("{}/", address))
+    let response:Response= client.post(&format!("{}/", app.address))
         .header("Content-Type","application/x-www-form-urlencoded") 
         .body(body)                               
         .send()
@@ -31,16 +31,16 @@ async fn root_check_valid_endpoint_post_return_200(){
 
 #[tokio::test]
 async fn root_check_invalid_endpoint_post_return_400(){
-    let address:String = init_app().await.address;
+    let app = init_app().await;
     let client:Client= reqwest::Client::new();
-    let test_cases:Vec<(&str, &str)> =vec![
-        ("name=le%20guin","missing the email"),
-        ("email=ursula_le_guin%40gmail.com","missing the name"),
-        ("","missing both name and email")];
-
+    let test_cases:Vec<(&str, &str)> = vec![
+        ("","empty name"),
+        ("name=%20"," name only with spaces"),
+        ("{\"name\":\"banana\"","Invalid Payload")
+    ];
         for (invalid_body, error_message) in test_cases{
             let response = client
-                .post(&format!("{}/sub", address))
+                .post(&format!("{}/", app.address))
                 .header("Content-Type","application/x-www-form-urlencoded")
                 .body(invalid_body)
                 .send()
