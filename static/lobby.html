@@ -9,5 +9,44 @@
 </head>
 <body>
     <h1>Eu sou o lobby</h1>
-</body>
+    <a href="/">Voltar para tela inicial</a>
+    <button>Botao para criar sala</button>
+
+<script>
+    /** @type {WebSocket | null} */
+    var socket = null
+
+    function connect() {
+      disconnect()
+
+      const { location } = window
+
+      const proto = location.protocol.startsWith('https') ? 'wss' : 'ws'
+      const wsUri = `${proto}://${location.host}${location.pathname}/ws`
+
+      socket = new WebSocket(wsUri)
+
+      socket.onopen = () => {
+        console.log("Eu entrei")
+      }
+
+      socket.onmessage = (ev) => {
+      
+      }
+
+      socket.onclose = () => {
+        socket = null
+      }
+    }
+
+    function disconnect() {
+      if (socket) {
+        socket.close()
+        socket = null
+      }
+    }
+
+    connect()
+  </script>
+  </body>
 </html>

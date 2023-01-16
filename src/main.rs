@@ -3,7 +3,7 @@ use sqlx::PgPool;
 use std::net::TcpListener;
 use bongo::startup::run;
 
-#[tokio::main]
+#[actix_web::main]
 async fn main() -> std::io::Result<()> {
     let config:Settings = get_local_configuration().expect("Failed to read configuration file");
     let connection_pool= PgPool::connect(&config.database.connection_string())

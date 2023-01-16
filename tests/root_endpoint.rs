@@ -25,8 +25,9 @@ async fn root_check_valid_endpoint_post_return_200(){
         .send()
         .await
         .expect("Test failed");
-
+        
     assert_eq!(200, response.status().as_u16());
+    assert_eq!("/lobby", response.headers().get("location").unwrap());
 }
 
 #[tokio::test]

@@ -1,10 +1,11 @@
 use unicode_segmentation::UnicodeSegmentation;
+use uuid::Uuid;
 
 
 pub struct NewRegistration {
-    pub name: UserName
+    pub name: UserName,
+    pub id: Uuid
 }
-
 pub struct UserName(String);
 impl UserName {
     pub fn parse(s:String)->Result<UserName, String>{
@@ -25,4 +26,5 @@ impl AsRef<str> for UserName{
         &self.0
     }
 }
+
 
