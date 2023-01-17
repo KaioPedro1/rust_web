@@ -1,5 +1,5 @@
 use std::net::TcpListener;
-use bongo::{startup::run, configuration::{Settings, DatabaseSettings}};
+use bongo::{startup::run, configuration::{Settings, DatabaseSettings}, model::AvailableRooms};
 use actix_web::dev::Server;
 use sqlx::{PgPool, PgConnection, Connection, Executor};
 use bongo::configuration::get_local_configuration;
@@ -16,12 +16,17 @@ pub async fn init_app() -> TestApp{
     config.database.database_name=Uuid::new_v4().to_string();
     //cria uma pool de connection passando um nome aleatorio 
     let db_pool = configure_database_init(&config.database).await;
-   
+    
+    let available_rooms = sqlx::query_as!(AvailableRooms,r#"SELECT * from availablerooms"#)
+        .fetch_all(&db_pool)
+        .await
+        .expect("Failed to query available rooms");
+        
     /*Gera porta aleatoria, por isso é passado a porta 0 no TcpListener::bind("127.0.0.1:0") */
     let listener:TcpListener = TcpListener::bind("127.0.0.1:0").expect("Failed to bind random port");
     let port:u16 = listener.local_addr().unwrap().port();
     /*instancia o server em uma thread separada para não criar um server infinito que bloqueia a execução dos testes */
-    let server:Server = run(listener, db_pool.clone()).expect("Failed to initialize");
+    let server:Server = run(listener, db_pool.clone(), available_rooms).expect("Failed to initialize");
     let _ = tokio::spawn(server);
     /*retora o endereço*/
     let address = format!("http://127.0.0.1:{}",port);

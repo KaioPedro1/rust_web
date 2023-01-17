@@ -1,18 +1,30 @@
 <!DOCTYPE html>
 <html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta http-equiv="X-UA-Compatible" content="IE=edge">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <link rel="stylesheet" href="/static/css/style.css">
-    <title>Lobby</title>
-</head>
-<body>
-    <h1>Eu sou o lobby</h1>
-    <a href="/">Voltar para tela inicial</a>
-    <button>Botao para criar sala</button>
 
-<script>
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="stylesheet" href="/static/css/style.css">
+  <title>Lobby</title>
+</head>
+
+<body>
+  <h1>Eu sou o lobby</h1>
+  <a href="/">Voltar para tela inicial</a>
+
+  <form onsubmit="handleSubmit(event)">
+    <label for="name">Rooms name: </label><br>
+    <input type="text" id="name" name="name" value="Bongo 1"><br>
+    <label for="number_of_players">Numbers of players: </label><br>
+    <input type="number" id="number_of_players" name="number_of_players" min="2" max="16" value="8"><br>
+    <!--<input type="checkbox" id="is_open" name="is_open" checked>
+    <label for="is_open">Open room</label>-->
+    <input type="submit" value="Submit">
+  </form>
+
+  <script>
+
     /** @type {WebSocket | null} */
     var socket = null
 
@@ -31,7 +43,7 @@
       }
 
       socket.onmessage = (ev) => {
-      
+
       }
 
       socket.onclose = () => {
@@ -47,6 +59,24 @@
     }
 
     connect()
+
+    function handleSubmit(e) {
+      e.preventDefault(); // prevent the form from submitting
+
+      let name = document.getElementById("name").value;
+      let number_of_players = parseInt(document.getElementById("number_of_players").value);
+    
+      let data = {
+        name: name,
+        number_of_players: number_of_players,
+      };
+
+      let jsonData = JSON.stringify(data); // convert the data to a JSON string
+
+      // send the data to the server using WebSockets
+      socket.send(jsonData);
+    }
   </script>
-  </body>
+</body>
+
 </html>

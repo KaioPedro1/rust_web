@@ -1,12 +1,16 @@
 use actix::{fut, ActorContext};
-use crate::websockets::messages::{Disconnect, Connect, WsMessage, ClientActorMessage}; //We'll be writing this later
-use crate::websockets::lobby_ws::Lobby; // as well as this
+use crate::model::AvailableRooms;
+use crate::websockets::messages::{Disconnect, Connect, WsMessage, ClientActorMessage}; 
+use crate::websockets::lobby_ws::Lobby; 
 use actix::{Actor, Addr, Running, StreamHandler, WrapFuture, ActorFutureExt, ContextFutureSpawner};
 use actix::{AsyncContext, Handler};
 use actix_web_actors::ws;
 use actix_web_actors::ws::Message::Text;
+use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 use uuid::Uuid;
+
+use super::UserInput;
 
 
 const HEARTBEAT_INTERVAL: Duration = Duration::from_secs(5);
@@ -17,15 +21,17 @@ pub struct WsConn {
     lobby_addr: Addr<Lobby>,
     hb: Instant,
     id: Uuid,
+    available_rooms: Arc<Mutex<Vec<AvailableRooms>>>
 }
 //id da sala global lobby hardcodado
 impl WsConn {
-    pub fn new(user_id: Uuid, lobby: Addr<Lobby>) -> WsConn {
+    pub fn new(user_id: Uuid, lobby: Addr<Lobby>, rooms_state: Arc<Mutex<Vec<AvailableRooms>>>) -> WsConn {
         WsConn {
             id: user_id,
             room:Uuid::parse_str("57a1396b-ac9d-4558-b356-1bf87246a14f").unwrap(),
             hb: Instant::now(),
             lobby_addr: lobby,
+            available_rooms: rooms_state,
         }
     }
 }
@@ -42,6 +48,7 @@ impl Actor for WsConn {
                 addr: addr.recipient(),
                 lobby_id: self.room,
                 self_id: self.id,
+                initial_room_state: self.available_rooms.clone()
             })
             .into_actor(self)
             .then(|res, _, ctx| {
@@ -74,7 +81,7 @@ impl WsConn {
         });
     }
 }
-
+//TODO: tratar erro ou refatorar a deserialização da mensagem recebida 
 impl StreamHandler<Result<ws::Message, ws::ProtocolError>> for WsConn {
     fn handle(&mut self, msg: Result<ws::Message, ws::ProtocolError>, ctx: &mut Self::Context) {
         match msg {
@@ -94,11 +101,23 @@ impl StreamHandler<Result<ws::Message, ws::ProtocolError>> for WsConn {
                 ctx.stop();
             }
             Ok(ws::Message::Nop) => (),
-            Ok(Text(s)) => self.lobby_addr.do_send(ClientActorMessage {
+            Ok(Text(s)) => {
+                let teste: UserInput = serde_json::from_str(s.to_string().as_str()).unwrap();
+                let testando = AvailableRooms{
+                    id:Uuid::new_v4(),
+                    room_id:Uuid::new_v4(),
+                    number_of_players:teste.number_of_players,
+                    is_open:true
+                };
+                let mut a = self.available_rooms.lock().unwrap();
+                a.push(testando);
+
+                self.lobby_addr.do_send(ClientActorMessage {
                 id: self.id,
-                msg: s.to_string(),
-                room_id: self.room
-            }),
+                msg: teste,
+                room_id: self.room,
+                rooms_state: self.available_rooms.clone()
+            })},
             Err(_) => panic!("e"),
         }
     }

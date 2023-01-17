@@ -5,7 +5,9 @@ use actix_web::{
 use sqlx::PgPool;
 use uuid::Uuid;
 
+use crate::database;
 
+//mover essa função para o model e validar os cookie por tipo
 async fn validate_cookie_uuid(req:HttpRequest, conn:web::Data<PgPool>)->bool{
     let cookie_uuid = match req.cookie("uuid") {
         Some(c) => c,
@@ -15,12 +17,12 @@ async fn validate_cookie_uuid(req:HttpRequest, conn:web::Data<PgPool>)->bool{
         Ok(u) => u,
         Err(e) => {println!{"Invalid Uuid{:?}", e}; return false},
     };
-    match check_user_id_db(user_uuid, conn).await {
+    match database::check_user_id_db(user_uuid, conn).await {
         Ok(_) => return true,
         Err(e) => {println!("Uuid doe snot exist in bd {:?}", e);return false},
     };
 }
-#[routes(GET)]
+#[routes(GET,POST)]
 #[get("/lobby")]
 async fn lobby_get(req: HttpRequest, connection: web::Data<PgPool>) -> HttpResponse {
     if validate_cookie_uuid(req, connection).await {
@@ -34,14 +36,8 @@ async fn lobby_get(req: HttpRequest, connection: web::Data<PgPool>) -> HttpRespo
         .body(include_str!("../../static/index.html"))
     }
 }
-struct UserId {
-    name: String,
-}
-async fn check_user_id_db(
-    user_uuid: Uuid,
-    connection: web::Data<PgPool>,
-) -> Result<UserId, sqlx::Error> {
-    sqlx::query_as!(UserId, r#"SELECT name FROM users WHERE id = $1"#, user_uuid)
-        .fetch_one(connection.get_ref())
-        .await
-}
+/* 
+#[post("/lobby")]
+async fn lobby_post(req: HttpRequest, connection: web::Data<PgPool>) -> HttpResponse {
+        HttpResponse::Ok().finish()
+}*/

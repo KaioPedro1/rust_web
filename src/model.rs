@@ -2,11 +2,11 @@ use unicode_segmentation::UnicodeSegmentation;
 use uuid::Uuid;
 
 
-pub struct NewRegistration {
+pub struct User {
     pub name: UserName,
     pub id: Uuid
 }
-pub struct UserName(String);
+pub struct UserName(pub String);
 impl UserName {
     pub fn parse(s:String)->Result<UserName, String>{
         let is_empty_or_whitespace = s.trim().is_empty();
@@ -26,5 +26,31 @@ impl AsRef<str> for UserName{
         &self.0
     }
 }
+//TODO: trocar numeros de players para u8 e implementar validação de todos os dados necessarios abaixo para inclusão no banco de dados
+#[derive(Debug)]
+pub struct AvailableRooms{
+    pub id:Uuid,
+    pub room_id:Uuid,
+    pub number_of_players:i32,
+    pub is_open: bool
+}
 
+pub struct Room{
+    pub id: Uuid,
+    pub name: RoomName,
+}
+pub struct RoomName(String);
+impl RoomName {
+    pub fn parse(s: String) -> Result<RoomName, String> {
+        let is_empty_or_whitespace = s.trim().is_empty();
+        let is_too_long = s.graphemes(true).count() > 100;
+        let forbidden_characters = ['/', '(', ')', '"', '<', '>', '\\', '{', '}'];
+        let contains_forbidden_characters = s.chars().any(|g| forbidden_characters.contains(&g));
 
+        if is_empty_or_whitespace || is_too_long || contains_forbidden_characters {
+            Err(format!("{} is not a valid room name.", s))
+        } else {
+            Ok(Self(s))
+        }
+    }
+}
