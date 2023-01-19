@@ -35,10 +35,14 @@ pub struct AvailableRooms{
     pub is_open: bool
 }
 
+#[derive(Debug)]
 pub struct Room{
     pub id: Uuid,
     pub name: RoomName,
+    pub max_number_players: MaxNumberOfPlayers
 }
+
+#[derive(Debug)]
 pub struct RoomName(String);
 impl RoomName {
     pub fn parse(s: String) -> Result<RoomName, String> {
@@ -52,5 +56,29 @@ impl RoomName {
         } else {
             Ok(Self(s))
         }
+    }
+}
+impl AsRef<str> for RoomName{
+    fn as_ref(&self)->&str{
+        &self.0
+    }
+}
+#[derive(Debug)]
+pub struct MaxNumberOfPlayers(i32);
+impl MaxNumberOfPlayers{
+    pub fn parse(n:i32)->Result<MaxNumberOfPlayers, String>{
+        let is_above_ceil = n>24;
+        let is_beneath_floor = n<2;
+
+        if is_above_ceil||is_beneath_floor{
+            Err(format!("{} is not in the interval (2,24).", n))
+        }else{
+            Ok(Self(n))
+        }
+    }
+}
+impl AsRef<i32> for MaxNumberOfPlayers{
+    fn as_ref(&self)->&i32{
+        &self.0
     }
 }

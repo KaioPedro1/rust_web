@@ -87,13 +87,15 @@ impl Handler<ClientActorMessage> for Lobby {
     type Result = ();
 
     fn handle(&mut self, msg: ClientActorMessage, _: &mut Context<Self>) -> Self::Result {
+        //msg privada
+        self.send_message(&msg.msg, &msg.id);
+        //msg para sala toda
             self.rooms
                 .get(&msg.room_id)
                 .unwrap()
                 .iter()
                 .for_each(|client| {
-                    self.send_message(&format!("Sala {:#?} id {:#?} room {:#?}", &msg.msg, &msg.id, &msg.room_id), client);
-                    self.send_message(&format!("Salas disponiveis {:#?}", &msg.rooms_state), client)
+                    self.send_message(&format!("{:#?}", &msg.rooms_state.lock().unwrap()), client)
                 });
     }
 }
