@@ -5,6 +5,11 @@ use uuid::Uuid;
 
 use crate::model::{AvailableRooms};
 
+struct MessageServer{
+    status:String,
+    message:String,
+    data:Option<Vec<AvailableRooms>>
+}
 //WsConn responds to this to pipe it through to the actual client
 #[derive(Message)]
 #[rtype(result = "()")]

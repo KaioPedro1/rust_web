@@ -139,7 +139,7 @@ impl StreamHandler<Result<ws::Message, ws::ProtocolError>> for WsConn {
                             self_clone.lobby_addr.do_send(ClientActorMessage {
                                 id: self_clone.id,
                                 msg: String::from(format!(
-                                    "Room created successfully!, redirect to ../{:?}",
+                                    "**Private message** Room created successfully!, redirect to ../{:?}",
                                     new_room.id
                                 )),
                                 room_id: self_clone.room,
@@ -182,7 +182,7 @@ fn validade_and_build_room(input: UserInput) -> Result<(Room, AvailableRooms), S
     let new_available_room = AvailableRooms {
         id: Uuid::new_v4(),
         room_id,
-        number_of_players: 1,
+        number_of_players: 0,
         is_open: true,
     };
 

@@ -95,7 +95,7 @@ impl Handler<ClientActorMessage> for Lobby {
                 .unwrap()
                 .iter()
                 .for_each(|client| {
-                    self.send_message(&format!("{:#?}", &msg.rooms_state.lock().unwrap()), client)
+                    self.send_message(&format!("**Lobby message** {:?}", &msg.rooms_state.lock().unwrap()[..]), client)
                 });
     }
 }
