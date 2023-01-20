@@ -2,7 +2,7 @@ use std::{net::TcpListener, sync::{ Arc, Mutex}};
 use actix::Actor;
 use actix_web::{dev::Server, App, HttpServer, web};
 use sqlx::{Pool, Postgres};
-use crate::{routes::{root_get,root_post,lobby_get, ws_connection, lobby_room_get,}, websockets::Lobby, model::AvailableRooms};
+use crate::{routes::{root_get,root_post,lobby_get, ws_connection,}, websockets::Lobby, model::AvailableRooms};
 use actix_files as fs;
 
 
@@ -25,7 +25,6 @@ pub fn run(listener: TcpListener, db_pool: Pool<Postgres>, available_rooms:Vec<A
                 .route(web::post().to(root_post)
             ))
             .service(lobby_get)
-            .service(lobby_room_get)
             
     })
         .listen(listener)?

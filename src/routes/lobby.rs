@@ -1,8 +1,7 @@
 use actix_web::{
     http::{header::{ContentType, LOCATION}},
-    web::{self}, HttpRequest, HttpResponse, routes, get,
+    web::{self}, HttpRequest, HttpResponse, routes,
 };
-use serde::Deserialize;
 use sqlx::PgPool;
 use uuid::Uuid;
 
@@ -37,16 +36,8 @@ async fn lobby_get(req: HttpRequest, connection: web::Data<PgPool>) -> HttpRespo
         .body(include_str!("../../static/index.html"))
     }
 }
-
-#[derive(Deserialize)]
-struct Info {
-    room_id: String,
-}
-
-#[get("/lobby/{room_id}")] 
-async fn lobby_room_get(info: web::Path<Info>) -> String {
-    format!(
-        "Welcome {}",
-        info.room_id
-    )
-}
+/* 
+#[post("/lobby")]
+async fn lobby_post(req: HttpRequest, connection: web::Data<PgPool>) -> HttpResponse {
+        HttpResponse::Ok().finish()
+}*/

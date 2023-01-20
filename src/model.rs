@@ -67,7 +67,6 @@ impl AsRef<str> for RoomName{
 pub struct MaxNumberOfPlayers(i32);
 impl MaxNumberOfPlayers{
     pub fn parse(n:i32)->Result<MaxNumberOfPlayers, String>{
-        
         let is_above_ceil = n>24;
         let is_beneath_floor = n<2;
 
@@ -83,5 +82,3 @@ impl AsRef<i32> for MaxNumberOfPlayers{
         &self.0
     }
 }
-
-
