@@ -1,3 +1,5 @@
+use std::sync::{Arc, Mutex};
+use serde::Serialize;
 use unicode_segmentation::UnicodeSegmentation;
 use uuid::Uuid;
 
@@ -27,7 +29,7 @@ impl AsRef<str> for UserName{
     }
 }
 //TODO: trocar numeros de players para u8 e implementar validação de todos os dados necessarios abaixo para inclusão no banco de dados
-#[derive(Debug)]
+#[derive(Debug,Serialize)]
 pub struct AvailableRooms{
     pub id:Uuid,
     pub room_id:Uuid,
@@ -82,3 +84,24 @@ impl AsRef<i32> for MaxNumberOfPlayers{
         &self.0
     }
 }
+
+
+#[derive(PartialEq, Debug,Serialize)]
+pub enum Status {
+    Sucess,
+    Failed,
+    Error
+}
+#[derive(PartialEq,Debug,Serialize)]
+pub enum Acess{
+    Public,
+    Private
+}
+#[derive(Debug,Serialize)]
+pub struct UserNotification{
+    pub status: Status,
+    pub acess: Acess,
+    pub message: String,
+    pub data: Arc<Mutex<Vec<AvailableRooms>>>
+}
+

@@ -1,9 +1,7 @@
 use std::sync::{Arc, Mutex};
-
 use actix::prelude::{Message, Recipient};
 use uuid::Uuid;
-
-use crate::model::{AvailableRooms};
+use crate::model::{AvailableRooms, UserNotification};
 
 //WsConn responds to this to pipe it through to the actual client
 #[derive(Message)]
@@ -29,15 +27,14 @@ pub struct Disconnect {
 }
 
 //client sends this to the lobby for the lobby to echo out.
-#[derive(Message)]
+#[derive(Message, Debug)]
 #[rtype(result = "()")]
 pub struct ClientActorMessage {
     pub id: Uuid,
-    pub msg: String,
+    pub notification: UserNotification,
     pub room_id: Uuid,
-    pub rooms_state: Arc<Mutex<Vec<AvailableRooms>>>,
-    
 }
+
 // TODO: achar onde enfiar essa struct, não faz sentido deixar aqui
 #[derive(serde::Deserialize, Debug)]
 pub struct UserInput{

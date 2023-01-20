@@ -22,7 +22,7 @@ async fn validate_cookie_uuid(req:HttpRequest, conn:web::Data<PgPool>)->bool{
         Err(e) => {println!("Uuid doe snot exist in bd {:?}", e);return false},
     };
 }
-#[routes(GET,POST)]
+#[routes(GET)]
 #[get("/lobby")]
 async fn lobby_get(req: HttpRequest, connection: web::Data<PgPool>) -> HttpResponse {
     if validate_cookie_uuid(req, connection).await {

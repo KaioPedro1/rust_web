@@ -1,5 +1,5 @@
 use crate::database;
-use crate::model::{AvailableRooms, MaxNumberOfPlayers, Room, RoomName};
+use crate::model::{AvailableRooms, MaxNumberOfPlayers, Room, RoomName, UserNotification};
 use crate::websockets::lobby_ws::Lobby;
 use crate::websockets::messages::{ClientActorMessage, Connect, Disconnect, WsMessage};
 use actix::{fut, ActorContext};
@@ -14,8 +14,12 @@ use sqlx::PgPool;
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 use uuid::Uuid;
-
+use crate::model::Acess::Public;
+use crate::model::Status::Sucess;
+use crate::model::Status::Failed;
+use crate::model::Acess::Private;
 use super::UserInput;
+
 
 const HEARTBEAT_INTERVAL: Duration = Duration::from_secs(5);
 const CLIENT_TIMEOUT: Duration = Duration::from_secs(10);
@@ -135,24 +139,29 @@ impl StreamHandler<Result<ws::Message, ws::ProtocolError>> for WsConn {
                     .await
                     {
                         Ok(_) => {
-                            self_clone.available_rooms.lock().unwrap().push(new_available_room);
+                            self_clone.available_rooms.lock().unwrap().push(new_available_room);                          
                             self_clone.lobby_addr.do_send(ClientActorMessage {
                                 id: self_clone.id,
-                                msg: String::from(format!(
-                                    "Room created successfully!, redirect to ../{:?}",
-                                    new_room.id
-                                )),
+                                notification: UserNotification{
+                                    status: Sucess,
+                                    acess: Public,
+                                    message: String::from(format!("Redirect to {}", new_room.id)),
+                                    data:self_clone.available_rooms.clone(),
+                                }
+                                ,
                                 room_id: self_clone.room,
-                                rooms_state: self_clone.available_rooms.clone(),
                             })
                         }
                         Err(e) => {
-                            println!("{:#?}", e);
                             self_clone.lobby_addr.do_send(ClientActorMessage {
                                 id: self_clone.id,
-                                msg: String::from("Failed to create a new room!"),
+                                notification: UserNotification{
+                                    status: Failed,
+                                    acess: Private,
+                                    message: String::from(format!("Unable to create a new room {:#?}", e)),
+                                    data:self_clone.available_rooms.clone(),
+                                },
                                 room_id: self_clone.room,
-                                rooms_state: self_clone.available_rooms.clone(),
                             })
                         }
                     }
