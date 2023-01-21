@@ -15,12 +15,10 @@ pub fn validade_and_build(form: FormData) -> Result<User, String> {
     Ok(User { name, id })
 }
 
-//deserializar entrada do usuario pelo fomrulário
 #[derive(serde::Deserialize, Debug)]
 pub struct FormData {
     pub name: String,
 }
-
 
 pub async fn root_get() -> Result<fs::NamedFile, Error> {
     let file = fs::NamedFile::open_async("./static/index.html")

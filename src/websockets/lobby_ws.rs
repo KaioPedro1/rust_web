@@ -1,24 +1,39 @@
+use crate::model::AvailableRooms;
 use crate::websockets::messages::{ClientActorMessage, Connect, Disconnect, WsMessage};
 use actix::prelude::{Actor, Context, Handler, Recipient};
+use actix_web::web::Data;
+use serde::Serialize;
 use std::collections::{HashMap, HashSet};
+use std::sync::{Arc, Mutex};
 use uuid::Uuid;
 use crate::model::Acess::Private;
 use crate::model::Status::Sucess;
+
+use super::EchoAvailableRoomsLobby;
+
+
 type Socket = Recipient<WsMessage>;
+
+#[derive(Serialize)]
+struct RoomsState {
+    available_rooms_state: Data<Arc<Mutex<Vec<AvailableRooms>>>>
+}
 
 pub struct Lobby {
     sessions: HashMap<Uuid, Socket>,          //self id to self
     rooms: HashMap<Uuid, HashSet<Uuid>>,      //room id  to list of users id
+    rooms_state: RoomsState
 }
-impl Default for Lobby {
-    fn default() -> Lobby {
+
+
+impl Lobby {
+    pub fn new(available_rooms_state: Data<Arc<Mutex<Vec<AvailableRooms>>>>) -> Lobby {
         Lobby {
             sessions: HashMap::new(),
-            rooms: HashMap::new(),  
+            rooms: HashMap::new(), 
+            rooms_state:RoomsState{available_rooms_state} 
         }
     }
-}
-impl Lobby {
     fn send_message(&self, message: &str, id_to: &Uuid) {
         if let Some(socket_recipient) = self.sessions.get(id_to) {
             let _ = socket_recipient
@@ -40,21 +55,14 @@ impl Handler<Connect> for Lobby {
         self.rooms
             .entry(msg.lobby_id)
             .or_insert_with(HashSet::new).insert(msg.self_id);
-    /* 
-         // send to everyone in the room that new uuid just joined
-        self
-            .rooms
-            .get(&msg.lobby_id)
-            .unwrap()
-            .iter()
-            .filter(|conn_id| *conn_id.to_owned() != msg.self_id)
-            .for_each(|conn_id| self.send_message(&format!("{} just joined!", msg.self_id), conn_id));
-*/
         // store the address
         self.sessions.insert(
             msg.self_id,
             msg.addr,
         );
+        //send private message to build the initial screen
+        let serialized_rooms = serde_json::to_string(&self.rooms_state.available_rooms_state).unwrap();
+        self.send_message(serialized_rooms.as_str(), &msg.self_id);
     }
 }
 /// Handler for Disconnect message.
@@ -63,12 +71,7 @@ impl Handler<Disconnect> for Lobby {
 
     fn handle(&mut self, msg: Disconnect, _: &mut Context<Self>) {
         if self.sessions.remove(&msg.id).is_some() {
-         /*    self.rooms
-                .get(&msg.room_id)
-                .unwrap()
-                .iter()
-                .filter(|conn_id| *conn_id.to_owned() != msg.id)
-                .for_each(|user_id| self.send_message(&format!("{} disconnected.", &msg.id), user_id));*/
+ 
             if let Some(lobby) = self.rooms.get_mut(&msg.room_id) {
                 if lobby.len() > 1 {
                     lobby.remove(&msg.id);
@@ -85,6 +88,7 @@ impl Handler<ClientActorMessage> for Lobby {
     type Result = ();
 
     fn handle(&mut self, msg: ClientActorMessage, _: &mut Context<Self>) -> Self::Result {
+        
         let notification_serialized = serde_json::to_string(&msg.notification).unwrap();
 
         if msg.notification.acess == Private {
@@ -104,3 +108,19 @@ impl Handler<ClientActorMessage> for Lobby {
             });  
     }
 }
+
+impl Handler<EchoAvailableRoomsLobby> for Lobby {
+    type Result = ();
+
+    fn handle(&mut self, msg: EchoAvailableRoomsLobby, _: &mut Context<Self>) -> Self::Result {
+        let serialized_rooms = serde_json::to_string(&self.rooms_state.available_rooms_state).unwrap();
+        self.rooms
+            .get(&msg.lobby_id)
+            .unwrap()
+            .iter()
+            .for_each(|client|{
+                self.send_message(serialized_rooms.as_str(), client)
+            });
+    }
+}
+

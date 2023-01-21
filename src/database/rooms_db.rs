@@ -42,3 +42,18 @@ pub async fn insert_room_and_available_room_db(new_room: &Room,
     .await?;
     tx.commit().await
 }
+
+
+pub async fn check_room_exist_in_available_rooms_table(
+    room_uuid: Uuid,
+    connection: web::Data<PgPool>,
+) -> Result<(), sqlx::Error> {
+    let _result = sqlx::query!(r#"SELECT Rooms.id FROM Rooms, AvailableRooms 
+        WHERE AvailableRooms.room_id = $1 
+        AND AvailableRooms.number_of_players < Rooms.max_number_of_players 
+        AND AvailableRooms.is_open = true"#
+        ,room_uuid)
+        .fetch_one(connection.get_ref())
+        .await?;
+    Ok(())
+}

@@ -10,10 +10,10 @@
 </head>
 
 <body>
-  <h1>Eu sou o lobby</h1>
+  <h1>Lobby</h1>
   <a href="/">Voltar para tela inicial</a>
 
-  <form onsubmit="handleSubmit(event)">
+  <form method="post">
     <label for="name">Rooms name: </label><br>
     <input type="text" id="name" name="name" value="Bongo 1"><br>
     <label for="number_of_players">Numbers of players: </label><br>
@@ -43,7 +43,7 @@
       }
 
       socket.onmessage = (ev) => {
-
+        console.log(ev.data)
       }
 
       socket.onclose = () => {
@@ -60,22 +60,7 @@
 
     connect()
 
-    function handleSubmit(e) {
-      e.preventDefault(); // prevent the form from submitting
-
-      let name = document.getElementById("name").value;
-      let number_of_players = parseInt(document.getElementById("number_of_players").value);
-    
-      let data = {
-        name: name,
-        number_of_players: number_of_players,
-      };
-
-      let jsonData = JSON.stringify(data); // convert the data to a JSON string
-
-      // send the data to the server using WebSockets
-      socket.send(jsonData);
-    }
+   
   </script>
 </body>
 

@@ -1,9 +1,13 @@
 use std::sync::{Arc, Mutex};
-use serde::Serialize;
+use serde::{Serialize};
 use unicode_segmentation::UnicodeSegmentation;
 use uuid::Uuid;
 
-
+pub struct ConnectionTuple{
+    pub user_id: Uuid,
+    pub room_id: Uuid,
+    pub is_admin: bool
+}
 pub struct User {
     pub name: UserName,
     pub id: Uuid
@@ -104,4 +108,5 @@ pub struct UserNotification{
     pub message: String,
     pub data: Arc<Mutex<Vec<AvailableRooms>>>
 }
+
 

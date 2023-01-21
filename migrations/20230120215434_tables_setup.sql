@@ -1,4 +1,3 @@
-
 CREATE TABLE Users(
     id uuid NOT NULL,
     PRIMARY KEY(id),
@@ -21,7 +20,7 @@ CREATE TABLE AvailableRooms (
 );
 
 CREATE TABLE Connections (
-    user_id uuid NOT NULL UNIQUE,
+    user_id uuid NOT NULL,
     room_id uuid NOT NULL,
     is_admin BOOLEAN NOT NULL,
     FOREIGN KEY (user_id) REFERENCES Users(id),
@@ -34,7 +33,7 @@ RETURNS TRIGGER AS $$
 BEGIN
     UPDATE AvailableRooms
     SET number_of_players = (SELECT COUNT(*) FROM Connections WHERE room_id = NEW.room_id)
-    WHERE id = NEW.room_id;
+    WHERE room_id = NEW.room_id;
     RETURN NULL;
 END;
 $$ LANGUAGE plpgsql;

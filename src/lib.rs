@@ -4,3 +4,4 @@ pub mod startup;
 pub mod routes;
 pub mod websockets;
 pub mod database;
+pub mod utils;
