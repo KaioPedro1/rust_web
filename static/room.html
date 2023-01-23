@@ -2,25 +2,70 @@
 <html lang="en">
 
 <head>
-    <meta charset="UTF-8">
-    <meta http-equiv="X-UA-Compatible" content="IE=edge">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Room</title>
+  <meta charset="UTF-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Room</title>
 </head>
 
 <body>
-    <h1>Só se eu for adm</h1>
-    <button onclick="deleteCurrentPage()">Fechar sala</button>
-    REEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEE
+  <h1>Só se eu for adm</h1>
+  <button onclick="deleteCurrentPage()">Fechar sala</button>
+  REEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEE
 </body>
 <script>
 
-    async function deleteCurrentPage() {
-        await fetch(window.location.href, {
-            method: 'DELETE'
-        });
+  async function deleteCurrentPage() {
+    await fetch(window.location.href, {
+      method: 'DELETE'
+    }).then(res => res.status == 204 ? window.location.replace(`${window.location.origin}/lobby`) : console.log("Não foi possivel deletar a sala, resposta não do servidor foi "+res.status));
+  }
+  var socket = null
+
+  function connect() {
+    disconnect()
+
+    const { location } = window
+
+    const proto = location.protocol.startsWith('https') ? 'wss' : 'ws'
+    const wsUri = `${proto}://${location.host}${location.pathname}/ws`
+
+    socket = new WebSocket(wsUri)
+
+    socket.onopen = () => {
+      console.log("Eu entrei")
     }
 
+    socket.onmessage = (ev) => {
+      let msg_parsed = JSON.parse(ev.data)
+      switch (msg_parsed.msg_type) {
+        case 'Notification':
+          console.log(msg_parsed);
+          break;
+        case 'Redirect':
+          window.location.replace(`${window.location.origin}/${msg_parsed.redirect}`)
+          break;
+        default:
+          console.log(`Error`);
+      }
+    }
+
+    socket.onclose = () => {
+      socket = null
+    }
+  }
+
+  function disconnect() {
+    if (socket) {
+      socket.close()
+      socket = null
+    }
+  }
+
+  connect()
+  window.onbeforeunload = function() {
+    socket.close();
+};
 </script>
 
 </html>

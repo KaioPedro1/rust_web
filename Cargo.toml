@@ -15,6 +15,7 @@ unicode-segmentation = "1"
 sqlx = { version = "0.6", features = [ "runtime-tokio-rustls","macros", "postgres", "uuid", "chrono", "migrate" ] }
 actix-web-actors = "4.1.0"
 actix = "0.13.0"
+env_logger = "0.10.0"
 
 
 [dev-dependencies]

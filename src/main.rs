@@ -1,4 +1,5 @@
 use bongo::{configuration::{Settings, get_local_configuration}, model::AvailableRooms};
+use env_logger::Env;
 use sqlx::PgPool;
 
 use std::net::TcpListener;
@@ -19,6 +20,7 @@ async fn main() -> std::io::Result<()> {
         .expect("Failed to query available rooms");
     let address:String = format!("127.0.0.1:{}", config.app_port);
     let listener:TcpListener = TcpListener::bind(address).expect("Failed to bind random port");
+    env_logger::Builder::from_env(Env::default().default_filter_or("info")).init();
     
     run(listener, connection_pool,available_rooms)?.await
 }

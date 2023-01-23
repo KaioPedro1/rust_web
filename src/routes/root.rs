@@ -36,7 +36,6 @@ pub async fn root_post(form: web::Form<FormData>, connection: web::Data<PgPool>)
             let cookie = Cookie::build("uuid", register.id.to_string())
                 .path(url_to_redirect)
                 .max_age(Duration::hours(60))
-                .http_only(true)
                 .finish();
         
             HttpResponse::Found()

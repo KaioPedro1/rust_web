@@ -5,7 +5,7 @@ use actix_web::{http::header::LOCATION, web::{self, Data},HttpRequest, HttpRespo
 use sqlx::PgPool;
 use uuid::Uuid;
 
-use crate::{utils::{check_if_cookie_is_valid, open_file_return_http_response, FilesOptions}, model::{Room, AvailableRooms, RoomName, MaxNumberOfPlayers}, database, websockets::{EchoAvailableRoomsLobby, Lobby}};
+use crate::{utils::{check_if_cookie_is_valid, open_file_return_http_response, FilesOptions, LOBBY_UUID}, model::{Room, AvailableRooms, RoomName, MaxNumberOfPlayers}, database, websockets::{EchoAvailableRoomsLobby, Lobby, Disconnect}};
 
 
 
@@ -30,9 +30,19 @@ pub async fn lobby_post(req: HttpRequest, connection: web::Data<PgPool>, user_in
     let (new_room, new_available_room) = validade_and_build_room(user_input.0).unwrap();
 
     match database::insert_room_and_available_room_db(&new_room, &new_available_room, &user_uuid, connection).await{
+        /*TODO: melhorar a lógica por trás disso, parece gambiarra, as intruções abaixo fazem o seguinte:
+        1)faz o parse do uuid do loby que é uma constante, é necessário pois vamos enviar mensagens para o actor lobby
+        2)adiciona no array state que é o campo rooms, esse array armazena todas as salas disponiveis
+        3)envia duas mensagens para o lobby, primeiro é para enviar para todos sockets conectados ao lobby informando as salas disponiveis
+        4)segunda mensagem é para desconectar o usuario do websocket, estava dando um erro pois o redirecionamento acontencia antes do disconnect, 
+        então o usuario entrava na sala e desconectava esse aqui é um workarround, não é o ideal
+        5)envia o httpresponse para redirecionar o usuario
+        */
         Ok(_) => {
+            let lobby_id = Uuid::parse_str(LOBBY_UUID).unwrap();
             rooms.lock().unwrap().push(new_available_room);
-            lobby_srv.send(EchoAvailableRoomsLobby{ lobby_id: Uuid::parse_str("57a1396b-ac9d-4558-b356-1bf87246a14f").unwrap()}).await.unwrap();
+            lobby_srv.send(EchoAvailableRoomsLobby{ lobby_id }).await.unwrap();
+            lobby_srv.send(Disconnect{ room_id: lobby_id, id: user_uuid }).await.unwrap();
             let url = format!("lobby/{}", new_room.id.to_string());
             HttpResponse::Found().append_header((LOCATION, url)).finish()
         },

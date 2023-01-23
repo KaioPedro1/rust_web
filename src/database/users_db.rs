@@ -15,7 +15,7 @@ pub async fn insert_user_db(new_user: &User, connection: web::Data<PgPool>) {
     .execute(connection.get_ref())
     .await
     {
-        Ok(_) => println!("Sucess at insertion of user",),
+        Ok(_) => (),
         Err(e) => {
             println!("Failed to execute query: {}", e);
         }

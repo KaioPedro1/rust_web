@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="stylesheet" href="/static/css/style.css">
+  <title>Lobby</title>
+</head>
+
+<body>
+  <h1>Lobby</h1>
+  <a href="/">Voltar para tela inicial</a>
+
+  <form method="post">
+    <label for="name">Rooms name: </label><br>
+    <input type="text" id="name" name="name" value="Bongo 1"><br>
+    <label for="number_of_players">Numbers of players: </label><br>
+    <input type="number" id="number_of_players" name="number_of_players" min="2" max="16" value="8"><br>
+    <!--<input type="checkbox" id="is_open" name="is_open" checked>
+    <label for="is_open">Open room</label>-->
+    <input type="submit" value="Submit">
+  </form>
+
+  pub id: Uuid,
+  pub room_id: Uuid,
+  pub number_of_players: i32,
+  pub is_open: bool,
+  <script>
+
+    /** @type {WebSocket | null} */
+    var socket = null
+
+    function connect() {
+      disconnect()
+
+      const { location } = window
+
+      const proto = location.protocol.startsWith('https') ? 'wss' : 'ws'
+      const wsUri = `${proto}://${location.host}${location.pathname}/ws`
+
+      socket = new WebSocket(wsUri)
+
+      socket.onopen = () => {
+        console.log("Eu entrei")
+      }
+
+      socket.onmessage = (ev) => {
+        console.log(JSON.parse(ev.data))
+      }
+
+      socket.onclose = () => {
+        socket = null
+      }
+    }
+
+    function disconnect() {
+      if (socket) {
+        socket.close()
+        socket = null
+      }
+    }
+
+    connect()
+
+window.onbeforeunload = function() {
+    socket.close();
+};
+   
+  </script>
+</body>
+
+</html>

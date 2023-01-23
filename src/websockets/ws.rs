@@ -1,5 +1,5 @@
 use crate::websockets::lobby_ws::Lobby;
-use crate::websockets::messages::{ Connect, Disconnect, WsMessage};
+use crate::websockets::messages::{Connect, Disconnect, WsMessage};
 use actix::{fut, ActorContext};
 use actix::{
     Actor, ActorFutureExt, Addr, ContextFutureSpawner, Running, StreamHandler, WrapFuture,
@@ -11,27 +11,22 @@ use actix_web_actors::ws::Message::Text;
 use std::time::{Duration, Instant};
 use uuid::Uuid;
 
-
-
 const HEARTBEAT_INTERVAL: Duration = Duration::from_secs(5);
 const CLIENT_TIMEOUT: Duration = Duration::from_secs(10);
 
 #[derive(Clone)]
 pub struct WsConn {
+    id: Uuid,
     room: Uuid,
     lobby_addr: Addr<Lobby>,
     hb: Instant,
-    id: Uuid,
 }
 //id da sala global lobby hardcodado
 impl WsConn {
-    pub fn new(
-        user_id: Uuid,
-        lobby: Addr<Lobby>,
-    ) -> WsConn {
+    pub fn new(user_id: Uuid, room_id: Uuid, lobby: Addr<Lobby>) -> WsConn {
         WsConn {
             id: user_id,
-            room: Uuid::parse_str("57a1396b-ac9d-4558-b356-1bf87246a14f").unwrap(),
+            room: room_id,
             hb: Instant::now(),
             lobby_addr: lobby,
         }
@@ -108,8 +103,7 @@ impl StreamHandler<Result<ws::Message, ws::ProtocolError>> for WsConn {
                 ctx.stop();
             }
             Ok(ws::Message::Nop) => (),
-            Ok(Text(_)) => {
-            }
+            Ok(Text(_)) => {}
             Err(_) => panic!("e"),
         }
     }
@@ -121,5 +115,3 @@ impl Handler<WsMessage> for WsConn {
         ctx.text(msg.0);
     }
 }
-
-

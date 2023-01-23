@@ -4,8 +4,9 @@ use actix_web::{http::header::LOCATION,HttpRequest, web::{self, Data}, HttpRespo
 use serde::Deserialize;
 use sqlx::PgPool;
 use uuid::Uuid;
-use crate::{database, websockets::{Lobby, EchoAvailableRoomsLobby}, model::AvailableRooms, utils::{check_if_cookie_is_valid, open_file_return_http_response, FilesOptions}};
-
+use crate::{database, websockets::{Lobby, EchoAvailableRoomsLobby, RoomNotification}, model::{AvailableRooms}, utils::{check_if_cookie_is_valid, open_file_return_http_response, FilesOptions, LOBBY_UUID}};
+use crate::model::MessageType::Redirect;
+use crate::model::ActionType::Delete;
 
 
 #[derive(Deserialize)]
@@ -65,10 +66,18 @@ pub async fn room_delete(
                             .lock()
                             .unwrap()
                             .retain(|r| r.room_id != conn_tuple.room_id);
-                        let _a = lobby_srv.send(EchoAvailableRoomsLobby{ lobby_id: Uuid::parse_str("57a1396b-ac9d-4558-b356-1bf87246a14f").unwrap()}).await;
+                        let _a = lobby_srv.send(EchoAvailableRoomsLobby{ lobby_id: Uuid::parse_str(LOBBY_UUID).unwrap()}).await;
+                        let _b = lobby_srv.send(RoomNotification{ 
+                            msg_type: Redirect,
+                            action: Delete, 
+                            user: conn_tuple.user_id, 
+                            room: conn_tuple.room_id, 
+                            redirect: Some("lobby".to_string()) 
+                        }).await;
                         HttpResponse::NoContent().finish()
                     },
                     Err(_) => HttpResponse::InternalServerError().finish(),
+
                 }
             }
             else{
@@ -77,5 +86,4 @@ pub async fn room_delete(
         },
         Err(_) =>  HttpResponse::BadRequest().body("Unable to found user and room in connection"),
     }
-
 }
