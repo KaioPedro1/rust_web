@@ -2,7 +2,7 @@ use actix::prelude::{Message, Recipient};
 use serde::Serialize;
 use uuid::Uuid;
 
-use crate::model::{MessageType, ActionType};
+use crate::model::{MessageRoomType, ActionRoomType, MessageLobbyType, RoomsInitialState, ConnectionsInitialState};
 
 #[derive(Message)]
 #[rtype(result = "()")]
@@ -34,9 +34,18 @@ pub struct Disconnect {
 #[derive(Message, Serialize)]
 #[rtype(result = "()")]
 pub struct RoomNotification {
-    pub msg_type: MessageType,
-    pub action: ActionType,
+    pub msg_type: MessageRoomType,
+    pub action: ActionRoomType,
     pub user: Uuid,
     pub room: Uuid,
     pub redirect: Option<String>
+}
+
+
+#[derive(Message, Serialize)]
+#[rtype(result = "()")]
+pub struct NotifyInitialLobbyState{
+    pub msg_type: MessageLobbyType,
+    pub rooms:Vec<RoomsInitialState>,
+    pub users:Vec<ConnectionsInitialState>
 }

@@ -5,8 +5,8 @@ use serde::Deserialize;
 use sqlx::PgPool;
 use uuid::Uuid;
 use crate::{database, websockets::{Lobby, EchoAvailableRoomsLobby, RoomNotification}, model::{AvailableRooms}, utils::{check_if_cookie_is_valid, open_file_return_http_response_with_cache, FilesOptions, LOBBY_UUID}};
-use crate::model::MessageType::Redirect;
-use crate::model::ActionType::Delete;
+use crate::model::MessageRoomType::Redirect;
+use crate::model::ActionRoomType::Delete;
 
 
 #[derive(Deserialize)]
@@ -37,7 +37,7 @@ pub async fn room_get(
         Ok(_) => open_file_return_http_response_with_cache(&req, FilesOptions::Room).await,
         Err(_) => {
             match database::insert_connection_db(room_uuid, user_uuid, connection.clone()).await {
-                Ok(_) =>     HttpResponse::Ok().append_header(("Cache-control","no-cache")).body(include_str!("../../static/room.html")),
+                Ok(_) =>  HttpResponse::Ok().append_header(("Cache-control","no-cache")).body(include_str!("../../static/room.html")),
                 Err(_) => HttpResponse::TemporaryRedirect()
                     .append_header((LOCATION, "/lobby"))
                     .finish(),

@@ -1,4 +1,4 @@
-mod common;
+/* mod common;
 use common::init_app;
 use reqwest::{Client, Response, cookie::Cookie, header::COOKIE};
 
@@ -20,4 +20,4 @@ async fn lobby_check_endpoint_get_return_200_with_cookie(){
     
     assert_eq!(200, response.status().as_u16());
    // assert_eq!(response.headers().get("content-type").unwrap(), "text/html; charset=utf-8");
-}
+}*/

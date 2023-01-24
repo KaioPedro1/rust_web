@@ -7,10 +7,12 @@ pub struct ConnectionTuple {
     pub room_id: Uuid,
     pub is_admin: bool,
 }
+#[derive(Debug, Serialize)]
 pub struct User {
     pub name: UserName,
     pub id: Uuid,
 }
+#[derive(Debug, Serialize)]
 pub struct UserName(pub String);
 impl UserName {
     pub fn parse(s: String) -> Result<UserName, String> {
@@ -40,14 +42,14 @@ pub struct AvailableRooms {
     pub is_open: bool,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Serialize)]
 pub struct Room {
     pub id: Uuid,
     pub name: RoomName,
     pub max_number_players: MaxNumberOfPlayers,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Serialize)]
 pub struct RoomName(String);
 impl RoomName {
     pub fn parse(s: String) -> Result<RoomName, String> {
@@ -68,7 +70,7 @@ impl AsRef<str> for RoomName {
         &self.0
     }
 }
-#[derive(Debug)]
+#[derive(Debug, Serialize)]
 pub struct MaxNumberOfPlayers(i32);
 impl MaxNumberOfPlayers {
     pub fn parse(n: i32) -> Result<MaxNumberOfPlayers, String> {
@@ -87,18 +89,52 @@ impl AsRef<i32> for MaxNumberOfPlayers {
         &self.0
     }
 }
+#[derive(Debug, Serialize)]
+pub struct  LobbyNotification {
+    msg_type: MessageLobbyType,
+    action: ActionLobbyType,
+    room: Room,
+    users:Option<Vec<User>>
+}
 
 #[derive(Debug, Serialize)]
-pub enum MessageType {
+pub enum ActionLobbyType {
+    Add,
+    Delete,
+}
+#[derive(Debug, Serialize)]
+pub enum MessageLobbyType {
+    Update,
+    Initial
+}
+
+
+#[derive(Debug, Serialize)]
+pub enum MessageRoomType {
     Notification,
     Redirect,
 }
 #[derive(Debug, Serialize)]
-pub enum ActionType {
+pub enum ActionRoomType {
     Enter,
     Leave,
     Delete,
 }
 
-
+#[derive(Debug, Serialize)]
+pub struct RoomsInitialState{
+    pub id: Uuid,
+    pub room_id:Uuid,
+    pub number_of_players: i32,
+    pub is_open: bool,
+    pub name:String,
+    pub max_number_of_players:i32
+}
+#[derive(Debug, Serialize)]
+pub struct ConnectionsInitialState{
+    pub user_id: Uuid,
+    pub room_id:Uuid,
+    pub is_admin: bool,
+    pub name: String
+}
 

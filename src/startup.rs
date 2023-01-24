@@ -9,6 +9,8 @@ use crate::{
 use actix::Actor;
 use actix_files as fs;
 use actix_web::{dev::Server, middleware::Logger, web, App, HttpServer};
+
+use redis::aio::Connection;
 use sqlx::{Pool, Postgres};
 use std::{
     net::TcpListener,
@@ -19,7 +21,9 @@ pub fn run(
     listener: TcpListener,
     db_pool: Pool<Postgres>,
     available_rooms: Vec<AvailableRooms>,
+    redis_connection: Connection 
 ) -> Result<Server, std::io::Error> {
+    let redis = web::Data::new(redis_connection);
     let connection = web::Data::new(db_pool);
     let available_rooms_mutex = web::Data::new(Arc::new(Mutex::new(available_rooms)));
     let lobby_ws_server = web::Data::new(Lobby::new(available_rooms_mutex.clone(), connection.clone()).start());
@@ -28,6 +32,7 @@ pub fn run(
         App::new()
             .wrap(Logger::default())
             .app_data(connection.clone())
+            .app_data(redis.clone())
             .app_data(lobby_ws_server.clone())
             .app_data(available_rooms_mutex.clone())
             .service(fs::Files::new("/static/css", "static/css"))

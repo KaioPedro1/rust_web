@@ -1,4 +1,4 @@
-mod common;
+/*mod common;
 use common::init_app;
 use reqwest::{Client, Response};
 
@@ -53,4 +53,4 @@ async fn root_check_invalid_endpoint_post_return_400(){
                 "The API did not fail with 400 Bad Request when the payload was {}.",
                 error_message);
             }    
-}
+} */

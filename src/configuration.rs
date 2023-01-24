@@ -4,7 +4,13 @@ use config::Config;
 #[derive(serde::Deserialize)]
 pub struct Settings{
     pub database:DatabaseSettings,
-    pub app_port: u16
+    pub app_port: u16,
+    pub redis: RedisSettings
+}
+
+#[derive(serde::Deserialize)]
+pub struct RedisSettings{
+    pub redis_url: String
 }
 #[derive(serde::Deserialize)]
 pub struct DatabaseSettings{

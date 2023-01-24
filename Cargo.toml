@@ -16,6 +16,7 @@ sqlx = { version = "0.6", features = [ "runtime-tokio-rustls","macros", "postgre
 actix-web-actors = "4.1.0"
 actix = "0.13.0"
 env_logger = "0.10.0"
+redis = { version = "0.22.3", features = ["tokio-comp"] }
 
 
 [dev-dependencies]
