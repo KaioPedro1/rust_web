@@ -22,7 +22,7 @@ pub fn run(
 ) -> Result<Server, std::io::Error> {
     let connection = web::Data::new(db_pool);
     let available_rooms_mutex = web::Data::new(Arc::new(Mutex::new(available_rooms)));
-    let lobby_ws_server = web::Data::new(Lobby::new(available_rooms_mutex.clone()).start());
+    let lobby_ws_server = web::Data::new(Lobby::new(available_rooms_mutex.clone(), connection.clone()).start());
 
     let server: Server = HttpServer::new(move || {
         App::new()

@@ -5,13 +5,13 @@ use actix_web::{http::header::LOCATION, web::{self, Data},HttpRequest, HttpRespo
 use sqlx::PgPool;
 use uuid::Uuid;
 
-use crate::{utils::{check_if_cookie_is_valid, open_file_return_http_response, FilesOptions, LOBBY_UUID}, model::{Room, AvailableRooms, RoomName, MaxNumberOfPlayers}, database, websockets::{EchoAvailableRoomsLobby, Lobby, Disconnect}};
+use crate::{utils::{check_if_cookie_is_valid,LOBBY_UUID, open_file_return_http_response_with_cache, FilesOptions}, model::{Room, AvailableRooms, RoomName, MaxNumberOfPlayers}, database, websockets::{EchoAvailableRoomsLobby, Lobby, Disconnect}};
 
 
 
 pub async fn lobby_get(req: HttpRequest, connection: web::Data<PgPool>) -> HttpResponse {
     match check_if_cookie_is_valid(&req, connection).await {
-        Ok(_) => open_file_return_http_response(&req, FilesOptions::Lobby).await,
+        Ok(_) =>open_file_return_http_response_with_cache(&req, FilesOptions::Lobby).await,
         Err(e) => e,
     }
 }

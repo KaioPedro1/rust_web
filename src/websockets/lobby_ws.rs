@@ -1,9 +1,11 @@
+use crate::database;
 use crate::model::AvailableRooms;
 use crate::utils::LOBBY_UUID;
 use crate::websockets::messages::{Connect, Disconnect, WsMessage};
 use actix::prelude::{Actor, Context, Handler, Recipient};
 use actix_web::web::Data;
 use serde::Serialize;
+use sqlx::PgPool;
 use std::collections::{HashMap, HashSet};
 use std::sync::{Arc, Mutex};
 use uuid::Uuid;
@@ -21,16 +23,21 @@ pub struct Lobby {
     sessions: HashMap<Uuid, Socket>,     //self id to self
     rooms: HashMap<Uuid, HashSet<Uuid>>, //room id  to list of users id
     rooms_state: RoomsState,
+    connection_pool: Data<PgPool>,
 }
 
 impl Lobby {
-    pub fn new(available_rooms_state: Data<Arc<Mutex<Vec<AvailableRooms>>>>) -> Lobby {
+    pub fn new(
+        available_rooms_state: Data<Arc<Mutex<Vec<AvailableRooms>>>>,
+        connection_pool: Data<PgPool>,
+    ) -> Lobby {
         Lobby {
             sessions: HashMap::new(),
             rooms: HashMap::new(),
             rooms_state: RoomsState {
                 available_rooms_state,
             },
+            connection_pool,
         }
     }
     fn send_message(&self, message: &str, id_to: &Uuid) {
@@ -45,8 +52,8 @@ impl Lobby {
 impl Actor for Lobby {
     type Context = Context<Self>;
 }
-use crate::model::MessageType::Notification;
 use crate::model::ActionType::Enter;
+use crate::model::MessageType::Notification;
 impl Handler<Connect> for Lobby {
     type Result = ();
 
@@ -59,33 +66,90 @@ impl Handler<Connect> for Lobby {
         // store the address
         self.sessions.insert(msg.self_id, msg.addr);
 
-        println!("{:?}",self.sessions);
         //send initial message
         if msg.lobby_id.to_string() == LOBBY_UUID {
             let serialized_rooms =
                 serde_json::to_string(&self.rooms_state.available_rooms_state).unwrap();
             self.send_message(serialized_rooms.as_str(), &msg.self_id);
-        }else{
-           self.handle(RoomNotification{ msg_type: Notification, action: Enter, user: msg.self_id, room: msg.lobby_id, redirect: None }, ctx)
+        } else {
+            self.handle(
+                RoomNotification {
+                    msg_type: Notification,
+                    action: Enter,
+                    user: msg.self_id,
+                    room: msg.lobby_id,
+                    redirect: None,
+                },
+                ctx,
+            )
         }
-        }
+    }
 }
 
 /// Handler for Disconnect message.
 impl Handler<Disconnect> for Lobby {
     type Result = ();
 
-    fn handle(&mut self, msg: Disconnect, _: &mut Context<Self>) {
-        if self.sessions.remove(&msg.id).is_some() {
-            if let Some(lobby) = self.rooms.get_mut(&msg.room_id) {
-                if lobby.len() > 1  {
+    fn handle(&mut self, msg: Disconnect, ctx: &mut Context<Self>) {
+        if msg.room_id.to_string() == LOBBY_UUID {
+            if self.sessions.remove(&msg.id).is_some() {
+                if let Some(lobby) = self.rooms.get_mut(&msg.room_id) {
                     lobby.remove(&msg.id);
-                } else {
-                    //only one in the lobby, remove it entirely
-                    self.rooms.remove(&msg.room_id);
                 }
             }
+        } else {
+            if self.sessions.remove(&msg.id).is_some() {
+                if let Some(room) = self.rooms.get_mut(&msg.room_id) {
+                    if room.len() > 1 {
+                        room.remove(&msg.id);
+                        let new_admin = room
+                            .iter()
+                            .next()
+                            .unwrap()
+                            .clone();
+                        let conn_pull = self.connection_pool.clone();
+    
+                        tokio::spawn(async move {
+                            database::disconnect_user_and_set_new_admin_if_needed(
+                                msg.id,
+                                new_admin,
+                                msg.room_id,
+                                conn_pull
+                            )
+                            .await
+                            .unwrap();    
+                        }); 
+                    } else {
+                        /*TODO: REFATORAR NO FUTURO 
+                        caso só exista uma pessoa na sala e ela desconecte, faça o seguinte
+                        1)remova a sala e as conexões do banco de dados
+                        2)remova as sala do map que contem todas as salas criadas
+                        3)remova a sala do array de estados 
+                        4)notifique a lobby principal
+                         */
+                        let conn_pull = self.connection_pool.clone();
+                        tokio::spawn(async move {
+                            database::delete_room_connections_close_room(
+                                msg.room_id,
+                                conn_pull,
+                            )
+                            .await
+                            .unwrap();    
+                        }); 
+                        self.rooms.remove(&msg.room_id);
+                        self.rooms_state
+                            .available_rooms_state
+                            .lock()
+                            .unwrap()
+                            .retain(|r| r.room_id != msg.room_id);
+                        let lobby_uuid = Uuid::parse_str(LOBBY_UUID).unwrap(); 
+                        self.handle(EchoAvailableRoomsLobby { lobby_id: lobby_uuid},ctx);
+                    }
+                }
+            }
+    
         }
+        
     }
 }
 impl Handler<EchoAvailableRoomsLobby> for Lobby {
@@ -112,8 +176,9 @@ impl Handler<RoomNotification> for Lobby {
         match self.rooms.get(&msg.room) {
             Some(hset) => {
                 let room_notification_serialized = serde_json::to_string(&msg).unwrap();
-                hset.iter()
-                    .for_each(|client| self.send_message(room_notification_serialized.as_str(), client));
+                hset.iter().for_each(|client| {
+                    self.send_message(room_notification_serialized.as_str(), client)
+                });
             }
             None => println!("Empty room"),
         }

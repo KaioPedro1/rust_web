@@ -11,7 +11,8 @@ pub enum FilesOptions {
     Lobby,
     Room,
 }
-pub async fn open_file_return_http_response(req: &HttpRequest, opt: FilesOptions) -> HttpResponse {
+
+pub async fn open_file_return_http_response_with_cache(req: &HttpRequest, opt: FilesOptions) -> HttpResponse {
     let file_path = match opt {
         FilesOptions::Lobby => "./static/lobby.html",
         FilesOptions::Room => "./static/room.html",

@@ -6,6 +6,7 @@
   <meta http-equiv="X-UA-Compatible" content="IE=edge">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Room</title>
+
 </head>
 
 <body>
@@ -13,12 +14,12 @@
   <button onclick="deleteCurrentPage()">Fechar sala</button>
   REEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEE
 </body>
-<script>
-
+<script> 
+  
   async function deleteCurrentPage() {
     await fetch(window.location.href, {
       method: 'DELETE'
-    }).then(res => res.status == 204 ? window.location.replace(`${window.location.origin}/lobby`) : console.log("Não foi possivel deletar a sala, resposta não do servidor foi "+res.status));
+    }).then(res => res.status == 204 ? window.location.replace(`${window.location.origin}/lobby`) : console.log("Não foi possivel deletar a sala, resposta não do servidor foi " + res.status));
   }
   var socket = null
 
@@ -61,11 +62,11 @@
       socket = null
     }
   }
-
+  
   connect()
-  window.onbeforeunload = function() {
+  window.onbeforeunload = function () {
     socket.close();
-};
+  };
 </script>
 
 </html>
