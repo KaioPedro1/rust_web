@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use actix_web::web;
 use sqlx::PgPool;
 use uuid::Uuid;
@@ -39,9 +41,9 @@ pub async fn get_connection_by_room_and_user(
 
 pub async fn delete_room_connections_close_room(
     room_uuid: Uuid,
-    connection: web::Data<PgPool>,
+    connection: Arc<PgPool>,
 ) -> Result<(), sqlx::Error> {
-    let mut tx = connection.get_ref().begin().await?;
+    let mut tx = connection.begin().await?;
 
     sqlx::query!(
         r#"UPDATE AvailableRooms SET is_open=false WHERE room_id = $1"#,
@@ -60,9 +62,9 @@ pub async fn disconnect_user_and_set_new_admin_if_needed(
     user_uuid: Uuid,
     new_admin_uuid: Uuid,
     room_uuid: Uuid,
-    connection: web::Data<PgPool>,
+    connection: Arc<PgPool>,
 ) -> Result<(), sqlx::Error> {
-    let mut tx = connection.get_ref().begin().await?;
+    let mut tx = connection.begin().await?;
     let user = sqlx::query!(
         r#"SELECT is_admin FROM Connections WHERE user_id= $1 AND room_id = $2"#,
         user_uuid,

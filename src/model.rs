@@ -1,4 +1,4 @@
-use serde::Serialize;
+use serde::{Serialize, Deserialize};
 use unicode_segmentation::UnicodeSegmentation;
 use uuid::Uuid;
 
@@ -121,7 +121,7 @@ pub enum ActionRoomType {
     Delete,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct RoomsInitialState{
     pub id: Uuid,
     pub room_id:Uuid,
@@ -130,7 +130,7 @@ pub struct RoomsInitialState{
     pub name:String,
     pub max_number_of_players:i32
 }
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct ConnectionsInitialState{
     pub user_id: Uuid,
     pub room_id:Uuid,

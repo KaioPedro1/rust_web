@@ -47,5 +47,6 @@ pub struct RoomNotification {
 pub struct NotifyInitialLobbyState{
     pub msg_type: MessageLobbyType,
     pub rooms:Vec<RoomsInitialState>,
-    pub users:Vec<ConnectionsInitialState>
+    pub users:Vec<ConnectionsInitialState>,
+    pub user_id_request: Uuid
 }

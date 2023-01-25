@@ -5,3 +5,4 @@ pub mod routes;
 pub mod websockets;
 pub mod database;
 pub mod utils;
+pub mod redis_utils;

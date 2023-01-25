@@ -1,11 +1,8 @@
-use std::sync::{Arc, Mutex};
-
-use actix::Addr;
-use actix_web::{http::header::LOCATION, web::{self, Data},HttpRequest, HttpResponse,};
+use actix_web::{http::header::LOCATION, web::{self},HttpRequest, HttpResponse,};
 use sqlx::PgPool;
 use uuid::Uuid;
 
-use crate::{utils::{check_if_cookie_is_valid,LOBBY_UUID, open_file_return_http_response_with_cache, FilesOptions}, model::{Room, AvailableRooms, RoomName, MaxNumberOfPlayers}, database, websockets::{EchoAvailableRoomsLobby, Lobby, Disconnect}};
+use crate::{utils::{check_if_cookie_is_valid, open_file_return_http_response_with_cache, FilesOptions}, model::{Room, AvailableRooms, RoomName, MaxNumberOfPlayers}, database};
 
 
 
@@ -22,7 +19,7 @@ pub struct UserInput{
     pub number_of_players:i32,
 }
 
-pub async fn lobby_post(req: HttpRequest, connection: web::Data<PgPool>, user_input: web::Form<UserInput>, rooms: Data<Arc<Mutex<Vec<AvailableRooms>>>>, lobby_srv: Data<Addr<Lobby>>)->HttpResponse{
+pub async fn lobby_post(req: HttpRequest, connection: web::Data<PgPool>, user_input: web::Form<UserInput>)->HttpResponse{
     let user_uuid = match check_if_cookie_is_valid(&req, connection.clone()).await {
         Ok(u) => u,
         Err(e) => return e,
@@ -39,10 +36,10 @@ pub async fn lobby_post(req: HttpRequest, connection: web::Data<PgPool>, user_in
         5)envia o httpresponse para redirecionar o usuario
         */
         Ok(_) => {
-            let lobby_id = Uuid::parse_str(LOBBY_UUID).unwrap();
-            rooms.lock().unwrap().push(new_available_room);
-            lobby_srv.send(EchoAvailableRoomsLobby{ lobby_id }).await.unwrap();
-            lobby_srv.send(Disconnect{ room_id: lobby_id, id: user_uuid }).await.unwrap();
+           // let lobby_id = Uuid::parse_str(LOBBY_UUID).unwrap();
+            //rooms.lock().unwrap().push(new_available_room);
+            //lobby_srv.send(EchoAvailableRoomsLobby{ lobby_id }).await.unwrap();
+            //lobby_srv.send(Disconnect{ room_id: lobby_id, id: user_uuid }).await.unwrap();
             let url = format!("lobby/{}", new_room.id.to_string());
             HttpResponse::Found().append_header((LOCATION, url)).finish()
         },

@@ -3,43 +3,34 @@ use crate::database;
 use crate::model::ActionRoomType::Enter;
 use crate::model::MessageLobbyType::Initial;
 use crate::model::MessageRoomType::Notification;
-use crate::model::{AvailableRooms, ConnectionsInitialState, RoomsInitialState};
+
+use crate::redis_utils::RedisState;
 use crate::utils::LOBBY_UUID;
 use crate::websockets::messages::{Connect, Disconnect, WsMessage};
 use actix::prelude::{Actor, Context, Handler, Recipient};
 use actix_web::web::Data;
-use serde::Serialize;
-use sqlx::PgPool;
+
 use std::collections::{HashMap, HashSet};
-use std::sync::{Arc, Mutex};
+use std::sync::{ Mutex};
 use uuid::Uuid;
 
 type Socket = Recipient<WsMessage>;
 
-#[derive(Serialize)]
-struct RoomsState {
-    available_rooms_state: Data<Arc<Mutex<Vec<AvailableRooms>>>>,
-}
 
 pub struct Lobby {
     sessions: HashMap<Uuid, Socket>,     //self id to self
     rooms: HashMap<Uuid, HashSet<Uuid>>, //room id  to list of users id
-    rooms_state: RoomsState,
-    connection_pool: Data<PgPool>,
+    redis: Data<Mutex<RedisState>>,
 }
 
 impl Lobby {
     pub fn new(
-        available_rooms_state: Data<Arc<Mutex<Vec<AvailableRooms>>>>,
-        connection_pool: Data<PgPool>,
+        redis:  Data<Mutex<RedisState>>,
     ) -> Lobby {
         Lobby {
             sessions: HashMap::new(),
             rooms: HashMap::new(),
-            rooms_state: RoomsState {
-                available_rooms_state,
-            },
-            connection_pool,
+            redis,
         }
     }
     fn send_message(&self, message: &str, id_to: &Uuid) {
@@ -71,10 +62,21 @@ impl Handler<Connect> for Lobby {
         self.sessions.insert(msg.self_id, msg.addr);
 
         //send initial message
-        if msg.lobby_id == self.get_lobby_uuid() {
-            let serialized_rooms =
-                serde_json::to_string(&self.rooms_state.available_rooms_state).unwrap();
-            self.send_message(serialized_rooms.as_str(), &msg.self_id);
+        if msg.lobby_id == self.get_lobby_uuid() { 
+            let vec_rooms = self
+                .redis
+                .lock()
+                .unwrap()
+                .get_all_rooms_from_redis()
+                .unwrap();
+            let vec_connections = self
+                .redis
+                .lock()
+                .unwrap()
+                .get_all_connections_from_redis()
+                .unwrap();
+
+            self.handle( NotifyInitialLobbyState{ msg_type: Initial, rooms: vec_rooms, users: vec_connections, user_id_request: msg.self_id}, ctx)
         } else {
             self.handle(
                 RoomNotification {
@@ -102,7 +104,7 @@ impl Handler<Disconnect> for Lobby {
                 }
             }
         } else {
-            let conn_pull = self.connection_pool.clone();
+            let conn_pull = self.redis.lock().unwrap().pg_pool.clone();
             if self.sessions.remove(&msg.id).is_some() {
                 if let Some(room) = self.rooms.get_mut(&msg.room_id) {
                     if room.len() > 1 {
@@ -132,11 +134,11 @@ impl Handler<Disconnect> for Lobby {
                                 .unwrap();
                         });
                         self.rooms.remove(&msg.room_id);
-                        self.rooms_state
+                       /*self.rooms_state
                             .available_rooms_state
                             .lock()
                             .unwrap()
-                            .retain(|r| r.room_id != msg.room_id);
+                            .retain(|r| r.room_id != msg.room_id);*/
                         self.handle(
                             EchoAvailableRoomsLobby {
                                 lobby_id: self.get_lobby_uuid(),
@@ -152,8 +154,8 @@ impl Handler<Disconnect> for Lobby {
 impl Handler<EchoAvailableRoomsLobby> for Lobby {
     type Result = ();
 
-    fn handle(&mut self, msg: EchoAvailableRoomsLobby, _: &mut Context<Self>) -> Self::Result {
-        let serialized_rooms =
+    fn handle(&mut self, _: EchoAvailableRoomsLobby, _: &mut Context<Self>) -> Self::Result {
+       /* let serialized_rooms =
             serde_json::to_string(&self.rooms_state.available_rooms_state).unwrap();
 
         match self.rooms.get(&msg.lobby_id) {
@@ -162,7 +164,7 @@ impl Handler<EchoAvailableRoomsLobby> for Lobby {
                     .for_each(|client| self.send_message(serialized_rooms.as_str(), client));
             }
             None => println!("Empty room"),
-        }
+        }*/
     }
 }
 
@@ -185,35 +187,9 @@ impl Handler<RoomNotification> for Lobby {
 impl Handler<NotifyInitialLobbyState> for Lobby {
     type Result = ();
 
-    fn handle(&mut self, _: NotifyInitialLobbyState, _: &mut Context<Self>) -> Self::Result {
-        
+    fn handle(&mut self, msg: NotifyInitialLobbyState, _: &mut Context<Self>) -> Self::Result {
+        let msg_serialized = serde_json::to_string(&msg).unwrap();
+        self.send_message(&msg_serialized, &msg.user_id_request)
     }
 }
 
-async fn initial_state(conn: &PgPool) -> NotifyInitialLobbyState {
-    let vec_rooms = sqlx::query_as!(
-        RoomsInitialState,
-        r#"SELECT availablerooms.*, rooms.name, rooms.max_number_of_players 
-        FROM availablerooms, rooms 
-        WHERE availablerooms.room_id = rooms.id 
-        AND availablerooms.is_open=true"#
-    )
-    .fetch_all(conn)
-    .await
-    .expect("Failed to query available rooms");
-    let vec_connections = sqlx::query_as!(
-        ConnectionsInitialState,
-        r#"SELECT connections.*, users.name 
-    FROM users, connections 
-    WHERE users.id = connections.user_id"#
-    )
-    .fetch_all(conn)
-    .await
-    .expect("Failed to query available rooms");
-
-    NotifyInitialLobbyState {
-        msg_type: Initial,
-        rooms: vec_rooms,
-        users: vec_connections,
-    }
-}

@@ -1,12 +1,9 @@
-use std::sync::{Arc, Mutex};
-use actix::Addr;
-use actix_web::{http::header::{LOCATION},HttpRequest, web::{self, Data}, HttpResponse};
+use actix_web::{http::header::{LOCATION},HttpRequest, web::{self}, HttpResponse};
 use serde::Deserialize;
 use sqlx::PgPool;
 use uuid::Uuid;
-use crate::{database, websockets::{Lobby, EchoAvailableRoomsLobby, RoomNotification}, model::{AvailableRooms}, utils::{check_if_cookie_is_valid, open_file_return_http_response_with_cache, FilesOptions, LOBBY_UUID}};
-use crate::model::MessageRoomType::Redirect;
-use crate::model::ActionRoomType::Delete;
+use crate::{database, utils::{check_if_cookie_is_valid, open_file_return_http_response_with_cache, FilesOptions}};
+
 
 
 #[derive(Deserialize)]
@@ -45,13 +42,12 @@ pub async fn room_get(
         }
     }
 }
-
+/* 
 pub async fn room_delete(
     req: HttpRequest,
     connection: web::Data<PgPool>,
     info: web::Path<RoomPath>,
     lobby_srv: Data<Addr<Lobby>>,
-    available_rooms_state: Data<Arc<Mutex<Vec<AvailableRooms>>>>,
 ) -> HttpResponse {
     let user_uuid = match check_if_cookie_is_valid(&req, connection.clone()).await {
         Ok(uuid) => uuid,
@@ -86,4 +82,4 @@ pub async fn room_delete(
         },
         Err(_) =>  HttpResponse::BadRequest().body("Unable to found user and room in connection"),
     }
-}
+}*/
