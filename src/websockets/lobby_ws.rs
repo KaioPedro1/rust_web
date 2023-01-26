@@ -1,4 +1,4 @@
-use super::{EchoAvailableRoomsLobby, NotifyInitialLobbyState, RoomNotification};
+use super::{LobbyNotification, RoomNotification};
 use crate::database;
 use crate::model::ActionRoomType::Enter;
 use crate::model::MessageLobbyType::Initial;
@@ -11,11 +11,10 @@ use actix::prelude::{Actor, Context, Handler, Recipient};
 use actix_web::web::Data;
 
 use std::collections::{HashMap, HashSet};
-use std::sync::{ Mutex};
+use std::sync::Mutex;
 use uuid::Uuid;
 
 type Socket = Recipient<WsMessage>;
-
 
 pub struct Lobby {
     sessions: HashMap<Uuid, Socket>,     //self id to self
@@ -24,9 +23,7 @@ pub struct Lobby {
 }
 
 impl Lobby {
-    pub fn new(
-        redis:  Data<Mutex<RedisState>>,
-    ) -> Lobby {
+    pub fn new(redis: Data<Mutex<RedisState>>) -> Lobby {
         Lobby {
             sessions: HashMap::new(),
             rooms: HashMap::new(),
@@ -44,7 +41,7 @@ impl Lobby {
         Uuid::parse_str(LOBBY_UUID).unwrap()
     }
 }
-
+impl Lobby {}
 impl Actor for Lobby {
     type Context = Context<Self>;
 }
@@ -62,7 +59,7 @@ impl Handler<Connect> for Lobby {
         self.sessions.insert(msg.self_id, msg.addr);
 
         //send initial message
-        if msg.lobby_id == self.get_lobby_uuid() { 
+        if msg.lobby_id == self.get_lobby_uuid() {
             let vec_rooms = self
                 .redis
                 .lock()
@@ -76,7 +73,15 @@ impl Handler<Connect> for Lobby {
                 .get_all_connections_from_redis()
                 .unwrap();
 
-            self.handle( NotifyInitialLobbyState{ msg_type: Initial, rooms: vec_rooms, users: vec_connections, user_id_request: msg.self_id}, ctx)
+            self.handle(
+                LobbyNotification {
+                    msg_type: Initial,
+                    action: None,
+                    room: crate::model::RoomTypes::Rooms(vec_rooms),
+                    user: Some(msg.self_id),
+                },
+                ctx,
+            )
         } else {
             self.handle(
                 RoomNotification {
@@ -91,12 +96,10 @@ impl Handler<Connect> for Lobby {
         }
     }
 }
-
-/// Handler for Disconnect message.
 impl Handler<Disconnect> for Lobby {
     type Result = ();
 
-    fn handle(&mut self, msg: Disconnect, ctx: &mut Context<Self>) {
+    fn handle(&mut self, msg: Disconnect, _: &mut Context<Self>) {
         if msg.room_id == self.get_lobby_uuid() {
             if self.sessions.remove(&msg.id).is_some() {
                 if let Some(lobby) = self.rooms.get_mut(&msg.room_id) {
@@ -121,53 +124,55 @@ impl Handler<Disconnect> for Lobby {
                             .unwrap();
                         });
                     } else {
-                        /*TODO: REFATORAR NO FUTURO
-                        caso só exista uma pessoa na sala e ela desconecte, faça o seguinte
-                        1)remova a sala e as conexões do banco de dados
-                        2)remova as sala do map que contem todas as salas criadas
-                        3)remova a sala do array de estados
-                        4)notifique a lobby principal
-                         */
                         tokio::spawn(async move {
                             database::delete_room_connections_close_room(msg.room_id, conn_pull)
                                 .await
                                 .unwrap();
                         });
                         self.rooms.remove(&msg.room_id);
-                       /*self.rooms_state
-                            .available_rooms_state
+
+                        let serialized = serde_json::to_string(&LobbyNotification {
+                            msg_type: crate::model::MessageLobbyType::Update,
+                            action: Some(crate::model::ActionLobbyType::Delete),
+                            room: crate::model::RoomTypes::Uuid(msg.room_id),
+                            user: Some(msg.id),
+                        })
+                        .unwrap();
+                        self.redis
                             .lock()
                             .unwrap()
-                            .retain(|r| r.room_id != msg.room_id);*/
-                        self.handle(
-                            EchoAvailableRoomsLobby {
-                                lobby_id: self.get_lobby_uuid(),
-                            },
-                            ctx,
-                        );
+                            .remove_room_publish_to_lobby(msg.room_id.to_string(), serialized)
+                            .unwrap();
                     }
                 }
             }
         }
     }
 }
-impl Handler<EchoAvailableRoomsLobby> for Lobby {
+
+impl Handler<LobbyNotification> for Lobby {
     type Result = ();
 
-    fn handle(&mut self, _: EchoAvailableRoomsLobby, _: &mut Context<Self>) -> Self::Result {
-       /* let serialized_rooms =
-            serde_json::to_string(&self.rooms_state.available_rooms_state).unwrap();
+    fn handle(&mut self, msg: LobbyNotification, _: &mut Context<Self>) -> Self::Result {
+        let serialized_lobby = serde_json::to_string(&msg).unwrap();
 
-        match self.rooms.get(&msg.lobby_id) {
-            Some(hset) => {
-                hset.iter()
-                    .for_each(|client| self.send_message(serialized_rooms.as_str(), client));
+        if msg.msg_type == Initial {
+            if let Some(user_uuid) = msg.user {
+                self.send_message(serialized_lobby.as_str(), &user_uuid)
+            } else {
+                println!("Couldn't find user uuid")
             }
-            None => println!("Empty room"),
-        }*/
+        } else {
+            match self.rooms.get(&self.get_lobby_uuid()) {
+                Some(hset) => {
+                    hset.iter()
+                        .for_each(|client| self.send_message(serialized_lobby.as_str(), client));
+                }
+                None => println!("Empty room"),
+            }
+        }
     }
 }
-
 impl Handler<RoomNotification> for Lobby {
     type Result = ();
 
@@ -183,13 +188,3 @@ impl Handler<RoomNotification> for Lobby {
         }
     }
 }
-
-impl Handler<NotifyInitialLobbyState> for Lobby {
-    type Result = ();
-
-    fn handle(&mut self, msg: NotifyInitialLobbyState, _: &mut Context<Self>) -> Self::Result {
-        let msg_serialized = serde_json::to_string(&msg).unwrap();
-        self.send_message(&msg_serialized, &msg.user_id_request)
-    }
-}
-

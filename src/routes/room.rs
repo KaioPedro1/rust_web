@@ -1,10 +1,20 @@
-use actix_web::{http::header::{LOCATION},HttpRequest, web::{self}, HttpResponse};
+use std::sync::Mutex;
+
+use crate::{
+    database,
+    redis_utils::RedisState,
+    utils::{check_if_cookie_is_valid, open_file_return_http_response_with_cache, FilesOptions},
+    websockets::{Lobby, RoomNotification},
+};
+use actix::Addr;
+use actix_web::{
+    http::header::LOCATION,
+    web::{self, Data},
+    HttpRequest, HttpResponse,
+};
 use serde::Deserialize;
 use sqlx::PgPool;
 use uuid::Uuid;
-use crate::{database, utils::{check_if_cookie_is_valid, open_file_return_http_response_with_cache, FilesOptions}};
-
-
 
 #[derive(Deserialize)]
 pub struct RoomPath {
@@ -30,11 +40,14 @@ pub async fn room_get(
             .finish();
     }
 
-    match database::get_connection_by_room_and_user(room_uuid, user_uuid, connection.clone()).await {
+    match database::get_connection_by_room_and_user(room_uuid, user_uuid, connection.clone()).await
+    {
         Ok(_) => open_file_return_http_response_with_cache(&req, FilesOptions::Room).await,
         Err(_) => {
             match database::insert_connection_db(room_uuid, user_uuid, connection.clone()).await {
-                Ok(_) =>  HttpResponse::Ok().append_header(("Cache-control","no-cache")).body(include_str!("../../static/room.html")),
+                Ok(_) => HttpResponse::Ok()
+                    .append_header(("Cache-control", "no-cache"))
+                    .body(include_str!("../../static/room.html")),
                 Err(_) => HttpResponse::TemporaryRedirect()
                     .append_header((LOCATION, "/lobby"))
                     .finish(),
@@ -42,44 +55,47 @@ pub async fn room_get(
         }
     }
 }
-/* 
+
 pub async fn room_delete(
     req: HttpRequest,
     connection: web::Data<PgPool>,
     info: web::Path<RoomPath>,
     lobby_srv: Data<Addr<Lobby>>,
+    redis: Data<Mutex<RedisState>>,
 ) -> HttpResponse {
     let user_uuid = match check_if_cookie_is_valid(&req, connection.clone()).await {
         Ok(uuid) => uuid,
         Err(e) => return e,
     };
-    match database::get_connection_by_room_and_user(info.room_uuid,user_uuid,connection.clone()).await{
+    match database::get_connection_by_room_and_user(info.room_uuid, user_uuid, connection.clone())
+        .await
+    {
         Ok(conn_tuple) => {
-            if conn_tuple.is_admin==true{
-                match database::delete_room_connections_close_room(conn_tuple.room_id, connection).await{
-                    Ok(_) =>{
-                        available_rooms_state
-                            .lock()
-                            .unwrap()
-                            .retain(|r| r.room_id != conn_tuple.room_id);
-                        let _a = lobby_srv.send(EchoAvailableRoomsLobby{ lobby_id: Uuid::parse_str(LOBBY_UUID).unwrap()}).await;
-                        let _b = lobby_srv.send(RoomNotification{ 
-                            msg_type: Redirect,
-                            action: Delete, 
-                            user: conn_tuple.user_id, 
-                            room: conn_tuple.room_id, 
-                            redirect: Some("lobby".to_string()) 
-                        }).await;
+            if conn_tuple.is_admin == true {
+                let conn_pull = redis.lock().unwrap().pg_pool.clone();
+                match database::delete_room_connections_close_room(conn_tuple.room_id, conn_pull)
+                    .await
+                {
+                    Ok(_) => {
+                        /* remoção da sala é feita por redirecionamento do usuario, se o usuario falhar em receber a mensagem abaixo, ou for um sacana vai bugar
+                         */
+                        let _ = lobby_srv
+                            .send(RoomNotification {
+                                msg_type: crate::model::MessageRoomType::Redirect,
+                                action: crate::model::ActionRoomType::Delete,
+                                user: conn_tuple.user_id,
+                                room: conn_tuple.room_id,
+                                redirect: Some("lobby".to_string()),
+                            })
+                            .await;
                         HttpResponse::NoContent().finish()
-                    },
+                    }
                     Err(_) => HttpResponse::InternalServerError().finish(),
-
                 }
-            }
-            else{
+            } else {
                 HttpResponse::Unauthorized().finish()
             }
-        },
-        Err(_) =>  HttpResponse::BadRequest().body("Unable to found user and room in connection"),
+        }
+        Err(_) => HttpResponse::BadRequest().body("Unable to found user and room in connection"),
     }
-}*/
+}

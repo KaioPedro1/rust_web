@@ -1,7 +1,7 @@
-use crate::model::{Room, AvailableRooms};
+use crate::model::{Room, AvailableRooms, RoomName, MaxNumberOfPlayers};
 use actix_web::web;
 use sqlx::types::chrono::Utc;
-use sqlx::PgPool;
+use sqlx::{PgPool, Pool, Postgres};
 use uuid::Uuid;
 
 
@@ -56,4 +56,28 @@ pub async fn check_room_exist_in_available_rooms_table(
         .fetch_one(connection.get_ref())
         .await?;
     Ok(())
+}
+
+pub async fn initial_rooms_state(pool:Pool<Postgres>)->Result<Vec<Room>,sqlx::Error>{
+    let result_query = sqlx::query!(
+        r#"SELECT rooms.*
+        FROM availablerooms, rooms 
+        WHERE availablerooms.room_id = rooms.id 
+        AND availablerooms.is_open=true"#
+    )
+    .fetch_all(&pool)
+    .await?;
+
+   let parse_to_room: Vec<Room> = result_query
+    .into_iter()
+    .map(|x| -> Room {
+        Room{
+            id: x.id,
+            name: RoomName(x.name),
+            max_number_players: MaxNumberOfPlayers(x.max_number_of_players),
+        }
+    })
+    .collect();
+    
+    Ok(parse_to_room)
 }

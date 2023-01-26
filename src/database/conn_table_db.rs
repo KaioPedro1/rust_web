@@ -1,10 +1,10 @@
 use std::sync::Arc;
 
-use actix_web::web;
-use sqlx::PgPool;
+use actix_web::web::{self};
+use sqlx::{PgPool, Pool, Postgres};
 use uuid::Uuid;
 
-use crate::model::ConnectionTuple;
+use crate::model::{ConnectionTuple, ConnectionsInitialState};
 
 pub async fn insert_connection_db(
     room_uuid: Uuid,
@@ -41,7 +41,7 @@ pub async fn get_connection_by_room_and_user(
 
 pub async fn delete_room_connections_close_room(
     room_uuid: Uuid,
-    connection: Arc<PgPool>,
+    connection: Arc<Pool<Postgres>>
 ) -> Result<(), sqlx::Error> {
     let mut tx = connection.begin().await?;
 
@@ -94,3 +94,13 @@ pub async fn disconnect_user_and_set_new_admin_if_needed(
     tx.commit().await
 }
 
+pub async fn connections_initial_state(pool:Pool<Postgres>)->Result<Vec<ConnectionsInitialState>, sqlx::Error>{
+   sqlx::query_as!(
+        ConnectionsInitialState,
+        r#"SELECT connections.*, users.name 
+        FROM users, connections 
+        WHERE users.id = connections.user_id"#
+    )
+    .fetch_all(&pool)
+    .await
+}

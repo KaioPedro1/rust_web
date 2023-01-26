@@ -1,14 +1,10 @@
 use actix::prelude::{Message, Recipient};
-use serde::Serialize;
+use serde::{Serialize, Deserialize};
 use uuid::Uuid;
 
-use crate::model::{MessageRoomType, ActionRoomType, MessageLobbyType, RoomsInitialState, ConnectionsInitialState};
+use crate::model::{MessageRoomType, ActionRoomType, MessageLobbyType, ActionLobbyType, RoomTypes};
 
-#[derive(Message)]
-#[rtype(result = "()")]
-pub struct EchoAvailableRoomsLobby {
-    pub lobby_id: Uuid,
-}
+
 //WsConn responds to this to pipe it through to the actual client
 #[derive(Message)]
 #[rtype(result = "()")]
@@ -31,7 +27,7 @@ pub struct Disconnect {
     pub id: Uuid,
 }
 
-#[derive(Message, Serialize)]
+#[derive(Message, Serialize, Deserialize)]
 #[rtype(result = "()")]
 pub struct RoomNotification {
     pub msg_type: MessageRoomType,
@@ -41,12 +37,11 @@ pub struct RoomNotification {
     pub redirect: Option<String>
 }
 
-
-#[derive(Message, Serialize)]
+#[derive(Message, Debug, Serialize, Deserialize, PartialEq)]
 #[rtype(result = "()")]
-pub struct NotifyInitialLobbyState{
+pub struct LobbyNotification {
     pub msg_type: MessageLobbyType,
-    pub rooms:Vec<RoomsInitialState>,
-    pub users:Vec<ConnectionsInitialState>,
-    pub user_id_request: Uuid
+    pub action: Option<ActionLobbyType>,
+    pub room: RoomTypes,
+    pub user: Option<Uuid>,
 }

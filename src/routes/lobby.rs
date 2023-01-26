@@ -1,8 +1,9 @@
-use actix_web::{http::header::LOCATION, web::{self},HttpRequest, HttpResponse,};
+use std::sync::Mutex;
+use actix_web::{http::header::LOCATION, web::{self, Data},HttpRequest, HttpResponse,};
 use sqlx::PgPool;
 use uuid::Uuid;
 
-use crate::{utils::{check_if_cookie_is_valid, open_file_return_http_response_with_cache, FilesOptions}, model::{Room, AvailableRooms, RoomName, MaxNumberOfPlayers}, database};
+use crate::{utils::{check_if_cookie_is_valid, open_file_return_http_response_with_cache, FilesOptions}, model::{Room, AvailableRooms, RoomName, MaxNumberOfPlayers}, database, redis_utils::RedisState, websockets::LobbyNotification};
 
 
 
@@ -19,28 +20,31 @@ pub struct UserInput{
     pub number_of_players:i32,
 }
 
-pub async fn lobby_post(req: HttpRequest, connection: web::Data<PgPool>, user_input: web::Form<UserInput>)->HttpResponse{
+pub async fn lobby_post(req: HttpRequest, connection: web::Data<PgPool>, user_input: web::Form<UserInput>, redis:Data<Mutex<RedisState>>)->HttpResponse{
     let user_uuid = match check_if_cookie_is_valid(&req, connection.clone()).await {
         Ok(u) => u,
         Err(e) => return e,
     };
     let (new_room, new_available_room) = validade_and_build_room(user_input.0).unwrap();
 
-    match database::insert_room_and_available_room_db(&new_room, &new_available_room, &user_uuid, connection).await{
-        /*TODO: melhorar a lógica por trás disso, parece gambiarra, as intruções abaixo fazem o seguinte:
-        1)faz o parse do uuid do loby que é uma constante, é necessário pois vamos enviar mensagens para o actor lobby
-        2)adiciona no array state que é o campo rooms, esse array armazena todas as salas disponiveis
-        3)envia duas mensagens para o lobby, primeiro é para enviar para todos sockets conectados ao lobby informando as salas disponiveis
-        4)segunda mensagem é para desconectar o usuario do websocket, estava dando um erro pois o redirecionamento acontencia antes do disconnect, 
-        então o usuario entrava na sala e desconectava esse aqui é um workarround, não é o ideal
-        5)envia o httpresponse para redirecionar o usuario
-        */
+    match database::insert_room_and_available_room_db(&new_room, &new_available_room, &user_uuid, connection).await{    
         Ok(_) => {
-           // let lobby_id = Uuid::parse_str(LOBBY_UUID).unwrap();
-            //rooms.lock().unwrap().push(new_available_room);
-            //lobby_srv.send(EchoAvailableRoomsLobby{ lobby_id }).await.unwrap();
-            //lobby_srv.send(Disconnect{ room_id: lobby_id, id: user_uuid }).await.unwrap();
-            let url = format!("lobby/{}", new_room.id.to_string());
+            let room = new_room.clone();
+            let serialized_notification = serde_json::to_string(&LobbyNotification{
+                msg_type:crate::model::MessageLobbyType::Update,
+                action:Some(crate::model::ActionLobbyType::Add),
+                room:crate::model::RoomTypes::Room(new_room),
+                user:Some(user_uuid)
+            }).unwrap();
+            let serialized_room = serde_json::to_string(&room).unwrap();
+        
+            redis
+                .lock()
+                .unwrap()
+                .insert_room_publish_to_lobby(room.id.to_string(), serialized_room,serialized_notification)
+                .unwrap();
+
+            let url = format!("lobby/{}", room.id.to_string());
             HttpResponse::Found().append_header((LOCATION, url)).finish()
         },
         Err(_) => HttpResponse::Ok().finish(),
