@@ -4,7 +4,7 @@ use crate::{
     database,
     redis_utils::RedisState,
     utils::{check_if_cookie_is_valid, open_file_return_http_response_with_cache, FilesOptions},
-    websockets::{Lobby, RoomNotification},
+    websockets::{Lobby, RoomNotification}, model::ConnectionMessage,
 };
 use actix::Addr;
 use actix_web::{
@@ -25,6 +25,7 @@ pub async fn room_get(
     req: HttpRequest,
     connection: web::Data<PgPool>,
     info: web::Path<RoomPath>,
+    redis: Data<Mutex<RedisState>>
 ) -> HttpResponse {
     let user_uuid = match check_if_cookie_is_valid(&req, connection.clone()).await {
         Ok(uuid) => uuid,
@@ -45,9 +46,20 @@ pub async fn room_get(
         Ok(_) => open_file_return_http_response_with_cache(&req, FilesOptions::Room).await,
         Err(_) => {
             match database::insert_connection_db(room_uuid, user_uuid, connection.clone()).await {
-                Ok(_) => HttpResponse::Ok()
-                    .append_header(("Cache-control", "no-cache"))
-                    .body(include_str!("../../static/room.html")),
+                Ok(_) => {
+                    redis
+                        .lock()
+                        .unwrap()
+                        .insert_connection(ConnectionMessage{ 
+                            user_id: user_uuid, 
+                            room_id: room_uuid, 
+                            is_admin: false, 
+                            name: "Cookie no futuro".to_string()})
+                        .unwrap();
+                    HttpResponse::Ok()
+                        .append_header(("Cache-control", "no-cache"))
+                        .body(include_str!("../../static/room.html"))
+                    },
                 Err(_) => HttpResponse::TemporaryRedirect()
                     .append_header((LOCATION, "/lobby"))
                     .finish(),

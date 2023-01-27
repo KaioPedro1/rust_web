@@ -17,7 +17,7 @@ async fn main() -> std::io::Result<()> {
         .get_connection()
         .expect("Failed to get a connection channel");
 
-    let pubsub_conn = redis::Client::open("redis://default:redispw@localhost:32769")
+    let pubsub_conn = redis::Client::open("redis://default:redispw@localhost:32768")
         .expect("Failed to open redis, invalid ip")
         .get_connection()
         .expect("Failed to get a connection channel");

@@ -106,9 +106,9 @@ pub enum RoomTypes {
 }
 #[derive(Debug, Serialize,Deserialize,PartialEq)]
 pub enum UserTypes {
-    User(User),
     Uuid(Uuid),
-    Rooms(Vec<User>)
+    Connections(Vec<ConnectionMessage>),
+    Connection(ConnectionMessage)
 }
 #[derive(Debug, Serialize,Deserialize)]
 pub enum MessageRoomType {
@@ -122,8 +122,8 @@ pub enum ActionRoomType {
     Delete,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
-pub struct ConnectionsInitialState{
+#[derive(Debug, Serialize, Deserialize,PartialEq, Clone)]
+pub struct ConnectionMessage{
     pub user_id: Uuid,
     pub room_id:Uuid,
     pub is_admin: bool,

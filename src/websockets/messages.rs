@@ -2,7 +2,7 @@ use actix::prelude::{Message, Recipient};
 use serde::{Serialize, Deserialize};
 use uuid::Uuid;
 
-use crate::model::{MessageRoomType, ActionRoomType, MessageLobbyType, ActionLobbyType, RoomTypes};
+use crate::model::{MessageRoomType, ActionRoomType, MessageLobbyType, ActionLobbyType, RoomTypes, UserTypes};
 
 
 //WsConn responds to this to pipe it through to the actual client
@@ -43,5 +43,6 @@ pub struct LobbyNotification {
     pub msg_type: MessageLobbyType,
     pub action: Option<ActionLobbyType>,
     pub room: RoomTypes,
-    pub user: Option<Uuid>,
+    pub user: Option<UserTypes>,
+    pub sender_uuid:Uuid
 }

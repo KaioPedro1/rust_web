@@ -33,15 +33,19 @@ pub async fn root_post(form: web::Form<FormData>, connection: web::Data<PgPool>)
         Ok(register) =>{ 
             database::insert_user_db(&register, connection).await;
             let url_to_redirect = "/lobby";
-            let cookie = Cookie::build("uuid", register.id.to_string())
+            let uuid_cookie = Cookie::build("uuid", register.id.to_string())
                 .path(url_to_redirect)
                 .max_age(Duration::hours(60))
                 .finish();
-        
+            let name_cookie = Cookie::build("name", register.name.as_ref())
+                .path(url_to_redirect)
+                .max_age(Duration::hours(60))
+                .finish();
             HttpResponse::Found()
                 .content_type(ContentType::html())
                 .append_header((LOCATION, url_to_redirect))
-                .cookie(cookie)
+                .cookie(uuid_cookie)
+                .cookie(name_cookie)
                 .finish()
         },
         Err(_) => return HttpResponse::BadRequest().finish(),

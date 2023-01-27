@@ -1,6 +1,7 @@
 use super::{LobbyNotification, RoomNotification};
 use crate::database;
 use crate::model::ActionRoomType::Enter;
+use crate::model::ConnectionMessage;
 use crate::model::MessageLobbyType::Initial;
 use crate::model::MessageRoomType::Notification;
 
@@ -50,15 +51,12 @@ impl Handler<Connect> for Lobby {
     type Result = ();
 
     fn handle(&mut self, msg: Connect, ctx: &mut Context<Self>) -> Self::Result {
-        // create a room if necessary, and then add the id to it
         self.rooms
             .entry(msg.lobby_id)
             .or_insert_with(HashSet::new)
             .insert(msg.self_id);
-        // store the address
         self.sessions.insert(msg.self_id, msg.addr);
 
-        //send initial message
         if msg.lobby_id == self.get_lobby_uuid() {
             let vec_rooms = self
                 .redis
@@ -78,7 +76,8 @@ impl Handler<Connect> for Lobby {
                     msg_type: Initial,
                     action: None,
                     room: crate::model::RoomTypes::Rooms(vec_rooms),
-                    user: Some(msg.self_id),
+                    user: Some(crate::model::UserTypes::Connections(vec_connections)),
+                    sender_uuid: msg.self_id,
                 },
                 ctx,
             )
@@ -106,11 +105,13 @@ impl Handler<Disconnect> for Lobby {
                     lobby.remove(&msg.id);
                 }
             }
-        } else {
+        } else {  
             let conn_pull = self.redis.lock().unwrap().pg_pool.clone();
             if self.sessions.remove(&msg.id).is_some() {
                 if let Some(room) = self.rooms.get_mut(&msg.room_id) {
                     if room.len() > 1 {
+                        let mut redis_lock = self.redis.lock().unwrap();
+                        redis_lock.remove_connection(msg.id.to_string()+"/"+&msg.room_id.to_string()).unwrap();
                         room.remove(&msg.id);
                         let new_admin = room.iter().next().unwrap().clone();
                         tokio::spawn(async move {
@@ -128,21 +129,28 @@ impl Handler<Disconnect> for Lobby {
                             database::delete_room_connections_close_room(msg.room_id, conn_pull)
                                 .await
                                 .unwrap();
-                        });
-                        self.rooms.remove(&msg.room_id);
-
+                        });  
+                        let mut redis_lock = self.redis.lock().unwrap();
+                        room
+                            .iter()
+                            .for_each(|user_id| {
+                                redis_lock.remove_connection(user_id.to_string()+"/"+&msg.room_id.to_string()).unwrap();
+                            });
+                        
                         let serialized = serde_json::to_string(&LobbyNotification {
                             msg_type: crate::model::MessageLobbyType::Update,
                             action: Some(crate::model::ActionLobbyType::Delete),
                             room: crate::model::RoomTypes::Uuid(msg.room_id),
-                            user: Some(msg.id),
+                            user: Some(crate::model::UserTypes::Uuid(msg.id)),
+                            sender_uuid: msg.id
                         })
                         .unwrap();
-                        self.redis
-                            .lock()
-                            .unwrap()
+
+                        redis_lock
                             .remove_room_publish_to_lobby(msg.room_id.to_string(), serialized)
                             .unwrap();
+
+                        self.rooms.remove(&msg.room_id);
                     }
                 }
             }
@@ -158,7 +166,10 @@ impl Handler<LobbyNotification> for Lobby {
 
         if msg.msg_type == Initial {
             if let Some(user_uuid) = msg.user {
-                self.send_message(serialized_lobby.as_str(), &user_uuid)
+                match user_uuid{
+                    crate::model::UserTypes::Connections(_) =>  self.send_message(serialized_lobby.as_str(), &msg.sender_uuid),
+                    _=>println!("Invalid user id, check messages type")
+                }
             } else {
                 println!("Couldn't find user uuid")
             }

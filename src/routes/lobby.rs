@@ -3,7 +3,7 @@ use actix_web::{http::header::LOCATION, web::{self, Data},HttpRequest, HttpRespo
 use sqlx::PgPool;
 use uuid::Uuid;
 
-use crate::{utils::{check_if_cookie_is_valid, open_file_return_http_response_with_cache, FilesOptions}, model::{Room, AvailableRooms, RoomName, MaxNumberOfPlayers}, database, redis_utils::RedisState, websockets::LobbyNotification};
+use crate::{utils::{check_if_cookie_is_valid, open_file_return_http_response_with_cache, FilesOptions}, model::{Room, AvailableRooms, RoomName, MaxNumberOfPlayers, self, ConnectionMessage}, database, redis_utils::RedisState, websockets::LobbyNotification};
 
 
 
@@ -30,20 +30,28 @@ pub async fn lobby_post(req: HttpRequest, connection: web::Data<PgPool>, user_in
     match database::insert_room_and_available_room_db(&new_room, &new_available_room, &user_uuid, connection).await{    
         Ok(_) => {
             let room = new_room.clone();
+            let user = ConnectionMessage{
+                user_id: user_uuid,
+                room_id: room.id,
+                is_admin: true,
+                name: "Vou vir dos cookies".to_string(),
+                };
             let serialized_notification = serde_json::to_string(&LobbyNotification{
                 msg_type:crate::model::MessageLobbyType::Update,
                 action:Some(crate::model::ActionLobbyType::Add),
                 room:crate::model::RoomTypes::Room(new_room),
-                user:Some(user_uuid)
+                user:Some(model::UserTypes::Connection(user.clone())),
+                sender_uuid: user_uuid,
             }).unwrap();
             let serialized_room = serde_json::to_string(&room).unwrap();
-        
-            redis
-                .lock()
-                .unwrap()
+          
+            let mut redis_unlock = redis.lock().unwrap();
+            redis_unlock
                 .insert_room_publish_to_lobby(room.id.to_string(), serialized_room,serialized_notification)
                 .unwrap();
-
+            redis_unlock
+                .insert_connection(user)
+                .unwrap();
             let url = format!("lobby/{}", room.id.to_string());
             HttpResponse::Found().append_header((LOCATION, url)).finish()
         },

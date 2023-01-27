@@ -4,7 +4,7 @@ use actix_web::web::{self};
 use sqlx::{PgPool, Pool, Postgres};
 use uuid::Uuid;
 
-use crate::model::{ConnectionTuple, ConnectionsInitialState};
+use crate::model::{ConnectionTuple, ConnectionMessage};
 
 pub async fn insert_connection_db(
     room_uuid: Uuid,
@@ -94,9 +94,9 @@ pub async fn disconnect_user_and_set_new_admin_if_needed(
     tx.commit().await
 }
 
-pub async fn connections_initial_state(pool:Pool<Postgres>)->Result<Vec<ConnectionsInitialState>, sqlx::Error>{
+pub async fn connections_initial_state(pool:Pool<Postgres>)->Result<Vec<ConnectionMessage>, sqlx::Error>{
    sqlx::query_as!(
-        ConnectionsInitialState,
+        ConnectionMessage,
         r#"SELECT connections.*, users.name 
         FROM users, connections 
         WHERE users.id = connections.user_id"#
