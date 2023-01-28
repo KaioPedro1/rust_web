@@ -21,7 +21,7 @@ pub struct UserInput{
 }
 
 pub async fn lobby_post(req: HttpRequest, connection: web::Data<PgPool>, user_input: web::Form<UserInput>, redis:Data<Mutex<RedisState>>)->HttpResponse{
-    let user_uuid = match check_if_cookie_is_valid(&req, connection.clone()).await {
+    let (user_uuid,name) = match check_if_cookie_is_valid(&req, connection.clone()).await {
         Ok(u) => u,
         Err(e) => return e,
     };
@@ -34,10 +34,10 @@ pub async fn lobby_post(req: HttpRequest, connection: web::Data<PgPool>, user_in
                 user_id: user_uuid,
                 room_id: room.id,
                 is_admin: true,
-                name: "Vou vir dos cookies".to_string(),
+                name,
                 };
             let serialized_notification = serde_json::to_string(&LobbyNotification{
-                msg_type:crate::model::MessageLobbyType::Update,
+                msg_type:crate::model::MessageLobbyType::UpdateRoom,
                 action:Some(crate::model::ActionLobbyType::Add),
                 room:crate::model::RoomTypes::Room(new_room),
                 user:Some(model::UserTypes::Connection(user.clone())),

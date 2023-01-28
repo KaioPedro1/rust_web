@@ -1,5 +1,6 @@
 use serde_json;
 use std::sync::{Arc, Mutex};
+use uuid::Uuid;
 
 use crate::{
     database,
@@ -33,9 +34,7 @@ impl RedisState {
             .collect::<Vec<Room>>();
         Ok(deserialize_vec)
     }
-    pub fn get_all_connections_from_redis(
-        &mut self,
-    ) -> Result<Vec<ConnectionMessage>, RedisError> {
+    pub fn get_all_connections_from_redis(&mut self) -> Result<Vec<ConnectionMessage>, RedisError> {
         let vec: Vec<String> = self.connection.lock().unwrap().hvals("Connections")?;
 
         let deserialize_vec = vec
@@ -72,22 +71,40 @@ impl RedisState {
     }
     pub fn insert_connection(
         &mut self,
-       new_connection: ConnectionMessage
+        new_connection: ConnectionMessage,
     ) -> Result<(), RedisError> {
         let mut conn_locked = self.connection.try_lock().unwrap();
-     
-        let field = new_connection.user_id.to_string() + "/"+ &new_connection.room_id.to_string();
+
+        let field = new_connection.user_id.to_string() + "/" + &new_connection.room_id.to_string();
         let value = serde_json::to_string(&new_connection).unwrap();
-        let _: () = conn_locked.hset("Connections", field,value)?;
+        let _: () = conn_locked.hset("Connections", field, value)?;
 
         Ok(())
     }
-    pub fn remove_connection(
-        &mut self,
-        field: String
-    ) -> Result<(), RedisError> {
+    pub fn remove_connection(&mut self, field: String) -> Result<(), RedisError> {
         let mut conn_locked = self.connection.try_lock().unwrap();
         let _: () = conn_locked.hdel("Connections", field)?;
+        Ok(())
+    }
+    pub fn publish_connection_to_lobby(&mut self, message: String) -> Result<(), RedisError> {
+        let mut conn_locked = self.connection.try_lock().unwrap();
+
+        let _: () = conn_locked.publish("lobby", message)?;
+        Ok(())
+    }
+    pub fn update_admin(&mut self, room_id: Uuid, new_admin_id: Uuid) -> Result<(), RedisError> {
+        let mut conn_locked = self.connection.try_lock().unwrap();
+
+        let vec: Vec<String> = conn_locked.hvals("Connections")?;
+       // let t: ConnectionMessage = serde_json::from_str(x).unwrap();
+        for conn_string in vec{
+            let mut deser_conn: ConnectionMessage = serde_json::from_str(&conn_string).unwrap();
+                if deser_conn.room_id==room_id && deser_conn.user_id==new_admin_id{
+                    deser_conn.is_admin=true;
+                    let msg = serde_json::to_string(&deser_conn).unwrap();
+                    let _: () = conn_locked.hset("Connections", deser_conn.user_id.to_string()+"/"+&deser_conn.room_id.to_string(),msg)?;
+                }
+        };
         Ok(())
     }
 }

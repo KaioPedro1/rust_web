@@ -18,7 +18,7 @@ pub async fn ws_lobby_get(
     srv: Data<Addr<Lobby>>,
     conn: Data<PgPool>,
 ) -> HttpResponse {
-    let user_uuid = match check_if_cookie_is_valid(&req, conn.clone()).await {
+    let (user_uuid,_) = match check_if_cookie_is_valid(&req, conn.clone()).await {
         Ok(uuid) => uuid,
         Err(e) => return e,
     };
@@ -38,7 +38,7 @@ pub async fn ws_room_get(
     conn: Data<PgPool>,
     info: web::Path<RoomPath>,
 ) -> HttpResponse {
-    let user_uuid = match check_if_cookie_is_valid(&req, conn.clone()).await {
+    let (user_uuid,_) = match check_if_cookie_is_valid(&req, conn.clone()).await {
         Ok(uuid) => uuid,
         Err(e) => return e,
     };

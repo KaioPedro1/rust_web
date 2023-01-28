@@ -4,7 +4,7 @@ use crate::{
     database,
     redis_utils::RedisState,
     utils::{check_if_cookie_is_valid, open_file_return_http_response_with_cache, FilesOptions},
-    websockets::{Lobby, RoomNotification}, model::ConnectionMessage,
+    websockets::{Lobby, RoomNotification, LobbyNotification}, model::{ConnectionMessage, self},
 };
 use actix::Addr;
 use actix_web::{
@@ -27,7 +27,7 @@ pub async fn room_get(
     info: web::Path<RoomPath>,
     redis: Data<Mutex<RedisState>>
 ) -> HttpResponse {
-    let user_uuid = match check_if_cookie_is_valid(&req, connection.clone()).await {
+    let (user_uuid,name) = match check_if_cookie_is_valid(&req, connection.clone()).await {
         Ok(uuid) => uuid,
         Err(e) => return e,
     };
@@ -47,15 +47,29 @@ pub async fn room_get(
         Err(_) => {
             match database::insert_connection_db(room_uuid, user_uuid, connection.clone()).await {
                 Ok(_) => {
-                    redis
+                    let mut redis_unlock = redis
                         .lock()
-                        .unwrap()
+                        .unwrap();    
+                    let message = serde_json::to_string(&LobbyNotification{ 
+                            msg_type: crate::model::MessageLobbyType::UpdatePlayer, 
+                            action:Some(crate::model::ActionLobbyType::Enter), 
+                            room: model::RoomTypes::Uuid(room_uuid), 
+                            user: Some(model::UserTypes::Connection(ConnectionMessage { user_id: user_uuid, room_id: room_uuid, is_admin: false, name:name.clone() })), 
+                            sender_uuid: user_uuid
+                            }
+                        )
+                        .unwrap();
+                    redis_unlock
                         .insert_connection(ConnectionMessage{ 
                             user_id: user_uuid, 
                             room_id: room_uuid, 
                             is_admin: false, 
-                            name: "Cookie no futuro".to_string()})
+                            name})
                         .unwrap();
+                    redis_unlock
+                        .publish_connection_to_lobby(message)
+                        .unwrap();
+                        
                     HttpResponse::Ok()
                         .append_header(("Cache-control", "no-cache"))
                         .body(include_str!("../../static/room.html"))
@@ -75,7 +89,7 @@ pub async fn room_delete(
     lobby_srv: Data<Addr<Lobby>>,
     redis: Data<Mutex<RedisState>>,
 ) -> HttpResponse {
-    let user_uuid = match check_if_cookie_is_valid(&req, connection.clone()).await {
+    let (user_uuid,_) = match check_if_cookie_is_valid(&req, connection.clone()).await {
         Ok(uuid) => uuid,
         Err(e) => return e,
     };

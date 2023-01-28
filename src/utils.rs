@@ -25,20 +25,27 @@ pub async fn open_file_return_http_response_with_cache(req: &HttpRequest, opt: F
 pub async fn check_if_cookie_is_valid(
     req: &HttpRequest,
     conn: web::Data<PgPool>,
-) -> Result<Uuid, HttpResponse> {
-    let cookie = req.cookie("uuid").ok_or(
+) -> Result<(Uuid,String), HttpResponse> {
+    let cookie_uuid = req.cookie("uuid").ok_or(
         HttpResponse::TemporaryRedirect()
             .append_header((LOCATION, "/"))
             .finish(),
     )?;
-    let user_uuid = Uuid::parse_str(cookie.value()).map_err(|_| {
+    let cookie_name = req.cookie("name").ok_or(
+        HttpResponse::TemporaryRedirect()
+            .append_header((LOCATION, "/"))
+            .finish(),
+    )?;
+
+    let user_uuid = Uuid::parse_str(cookie_uuid.value()).map_err(|_| {
         HttpResponse::TemporaryRedirect()
             .append_header((LOCATION, "/"))
             .finish()
     })?;
+    let name =cookie_name.value();
 
-    match database::check_user_id_db(user_uuid, conn).await {
-        Ok(_) => Ok(user_uuid),
+    match database::check_user_id_db(user_uuid, name,conn).await {
+        Ok(_) => Ok((user_uuid,name.to_string())),
         Err(_) => Err(HttpResponse::TemporaryRedirect()
             .append_header((LOCATION, "/"))
             .finish()),

@@ -92,10 +92,13 @@ impl AsRef<i32> for MaxNumberOfPlayers {
 pub enum ActionLobbyType {
     Add,
     Delete,
+    Enter,
+    Leave
 }
 #[derive(Debug, Serialize,Deserialize,PartialEq)]
 pub enum MessageLobbyType {
-    Update,
+    UpdateRoom,
+    UpdatePlayer,
     Initial
 }
 #[derive(Debug, Serialize,Deserialize,PartialEq)]
