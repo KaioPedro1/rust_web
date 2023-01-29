@@ -1,60 +1,83 @@
-use std::sync::Mutex;
-use actix_web::{http::header::LOCATION, web::{self, Data},HttpRequest, HttpResponse,};
+use actix_web::{
+    http::header::LOCATION,
+    web::{self, Data},
+    HttpRequest, HttpResponse,
+};
 use sqlx::PgPool;
+use std::sync::Mutex;
 use uuid::Uuid;
 
-use crate::{utils::{check_if_cookie_is_valid, open_file_return_http_response_with_cache, FilesOptions}, model::{Room, AvailableRooms, RoomName, MaxNumberOfPlayers, self, ConnectionMessage}, database, redis_utils::RedisState, websockets::LobbyNotification};
+use crate::{
+    database,
+    middleware::Authenticated,
+    model::{self, AvailableRooms, ConnectionMessage, MaxNumberOfPlayers, Room, RoomName},
+    redis_utils::RedisState,
+    utils::{check_if_cookie_is_valid, open_file_return_http_response_with_cache, FilesOptions},
+    websockets::LobbyNotification,
+};
 
-
-
-pub async fn lobby_get(req: HttpRequest, connection: web::Data<PgPool>) -> HttpResponse {
-    match check_if_cookie_is_valid(&req, connection).await {
-        Ok(_) =>open_file_return_http_response_with_cache(&req, FilesOptions::Lobby).await,
-        Err(e) => e,
-    }
+pub async fn lobby_get(req: HttpRequest, _: Authenticated) -> HttpResponse {
+    open_file_return_http_response_with_cache(&req, FilesOptions::Lobby).await
 }
 
 #[derive(serde::Deserialize, Debug)]
-pub struct UserInput{
+pub struct UserInput {
     pub name: String,
-    pub number_of_players:i32,
+    pub number_of_players: i32,
 }
 
-pub async fn lobby_post(req: HttpRequest, connection: web::Data<PgPool>, user_input: web::Form<UserInput>, redis:Data<Mutex<RedisState>>)->HttpResponse{
-    let (user_uuid,name) = match check_if_cookie_is_valid(&req, connection.clone()).await {
+pub async fn lobby_post(
+    req: HttpRequest,
+    connection: web::Data<PgPool>,
+    user_input: web::Form<UserInput>,
+    redis: Data<Mutex<RedisState>>,
+) -> HttpResponse {
+    let (user_uuid, name) = match check_if_cookie_is_valid(&req, connection.clone()).await {
         Ok(u) => u,
         Err(e) => return e,
     };
     let (new_room, new_available_room) = validade_and_build_room(user_input.0).unwrap();
 
-    match database::insert_room_and_available_room_db(&new_room, &new_available_room, &user_uuid, connection).await{    
+    match database::insert_room_and_available_room_db(
+        &new_room,
+        &new_available_room,
+        &user_uuid,
+        connection,
+    )
+    .await
+    {
         Ok(_) => {
             let room = new_room.clone();
-            let user = ConnectionMessage{
+            let user = ConnectionMessage {
                 user_id: user_uuid,
                 room_id: room.id,
                 is_admin: true,
                 name,
-                };
-            let serialized_notification = serde_json::to_string(&LobbyNotification{
-                msg_type:crate::model::MessageLobbyType::UpdateRoom,
-                action:Some(crate::model::ActionLobbyType::Add),
-                room:crate::model::RoomTypes::Room(new_room),
-                user:Some(model::UserTypes::Connection(user.clone())),
+            };
+            let serialized_notification = serde_json::to_string(&LobbyNotification {
+                msg_type: crate::model::MessageLobbyType::UpdateRoom,
+                action: Some(crate::model::ActionLobbyType::Add),
+                room: crate::model::RoomTypes::Room(new_room),
+                user: Some(model::UserTypes::Connection(user.clone())),
                 sender_uuid: user_uuid,
-            }).unwrap();
+            })
+            .unwrap();
             let serialized_room = serde_json::to_string(&room).unwrap();
-          
+
             let mut redis_unlock = redis.lock().unwrap();
             redis_unlock
-                .insert_room_publish_to_lobby(room.id.to_string(), serialized_room,serialized_notification)
+                .insert_room_publish_to_lobby(
+                    room.id.to_string(),
+                    serialized_room,
+                    serialized_notification,
+                )
                 .unwrap();
-            redis_unlock
-                .insert_connection(user)
-                .unwrap();
+            redis_unlock.insert_connection(user).unwrap();
             let url = format!("lobby/{}", room.id.to_string());
-            HttpResponse::Found().append_header((LOCATION, url)).finish()
-        },
+            HttpResponse::Found()
+                .append_header((LOCATION, url))
+                .finish()
+        }
         Err(_) => HttpResponse::Ok().finish(),
     }
 }

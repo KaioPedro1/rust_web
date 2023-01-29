@@ -1,12 +1,15 @@
 use actix_files as fs;
 use actix_web::{
-    cookie::{time::Duration, Cookie},
+    cookie::{ Cookie},
     http::header::{ContentType, LOCATION},
     web::{self}, Error, HttpResponse,
 };
+use chrono::{Duration, Utc};
+use actix_web::cookie::time::Duration as dr;
+use jsonwebtoken::{encode, Header, EncodingKey};
 use sqlx::PgPool;
 use uuid::Uuid;
-use crate::{model::{User, UserName}, database};
+use crate::{model::{User, UserName, Claims}, database};
 
 
 pub fn validade_and_build(form: FormData) -> Result<User, String> {
@@ -32,20 +35,29 @@ pub async fn root_post(form: web::Form<FormData>, connection: web::Data<PgPool>)
     match validade_and_build(form.0) {
         Ok(register) =>{ 
             database::insert_user_db(&register, connection).await;
+            let claims = Claims {
+                sub: register.id.to_string(),
+                name: register.name.0,
+                exp: (Utc::now() + Duration::hours(24)).timestamp() as usize,
+            };
+            let token = encode(
+                &Header::default(),
+                &claims,
+                &EncodingKey::from_secret("secret".as_ref()),
+            )
+            .unwrap();
+
             let url_to_redirect = "/lobby";
-            let uuid_cookie = Cookie::build("uuid", register.id.to_string())
-                .path(url_to_redirect)
-                .max_age(Duration::hours(60))
-                .finish();
-            let name_cookie = Cookie::build("name", register.name.as_ref())
-                .path(url_to_redirect)
-                .max_age(Duration::hours(60))
-                .finish();
+        
+            let jwt_cookie = Cookie::build("jwt", token.clone())
+            .path(url_to_redirect)
+            .max_age(dr::hours(24))
+            .finish();
+
             HttpResponse::Found()
                 .content_type(ContentType::html())
                 .append_header((LOCATION, url_to_redirect))
-                .cookie(uuid_cookie)
-                .cookie(name_cookie)
+                .cookie(jwt_cookie)
                 .finish()
         },
         Err(_) => return HttpResponse::BadRequest().finish(),

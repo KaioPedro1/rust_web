@@ -133,3 +133,9 @@ pub struct ConnectionMessage{
     pub name: String
 }
 
+#[derive(Debug, Serialize, Deserialize,Clone)]
+pub struct Claims {
+    pub sub: String,
+    pub name: String,
+    pub exp: usize,
+}

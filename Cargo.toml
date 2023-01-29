@@ -17,7 +17,10 @@ actix-web-actors = "4.1.0"
 actix = "0.13.0"
 env_logger = "0.10.0"
 redis = { version = "0.22.3", features = ["tokio-comp"] }
-
+jsonwebtoken = "8.2.0"
+chrono = "0.4.23"
+futures-util = "0.3.25"
+derive_more = {version="0.99.17", default-features=false, features= ["display", "error"]}
 
 [dev-dependencies]
 reqwest = { version = "0.11", features = ["cookies"] }

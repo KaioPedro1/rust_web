@@ -17,7 +17,7 @@ async fn main() -> std::io::Result<()> {
         .get_connection()
         .expect("Failed to get a connection channel");
 
-    let pubsub_conn = redis::Client::open("redis://default:redispw@localhost:32768")
+    let pubsub_conn = redis::Client::open("redis://default:redispw@localhost:32769")
         .expect("Failed to open redis, invalid ip")
         .get_connection()
         .expect("Failed to get a connection channel");
@@ -31,7 +31,7 @@ async fn main() -> std::io::Result<()> {
 
     let address:String = format!("127.0.0.1:{}", config.app_port);
     let listener:TcpListener = TcpListener::bind(address).expect("Failed to bind random port");
-    env_logger::Builder::from_env(Env::default().default_filter_or("info")).init();
+    env_logger::Builder::from_env(Env::default().default_filter_or("off")).init();
     
     run(listener, connection_pool, redis_connection, pubsub_conn)?.await
 }

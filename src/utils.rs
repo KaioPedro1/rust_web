@@ -3,9 +3,10 @@ use actix_files as fs;
 use sqlx::PgPool;
 use uuid::Uuid;
 
-use crate::database;
+use crate::{database};
 
 pub const LOBBY_UUID:&str = "57a1396b-ac9d-4558-b356-1bf87246a14f";
+
 
 pub enum FilesOptions {
     Lobby,

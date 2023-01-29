@@ -3,7 +3,7 @@ use crate::{
         lobby_get, lobby_post, room_get, root_get, root_post, ws_lobby_get,
         ws_room_get, room_delete,
     },
-    websockets::Lobby, redis_utils::{self},
+    websockets::Lobby, redis_utils::{self}, middleware::JwtAuth,
 };
 use actix::Actor;
 use actix_files as fs;
@@ -42,6 +42,7 @@ pub fn run(
             )
             .service(
                 web::scope("/lobby")
+                    .wrap(JwtAuth)
                     .route("", web::get().to(lobby_get))
                     .route("", web::post().to(lobby_post))
                     .route("/ws", web::get().to(ws_lobby_get))

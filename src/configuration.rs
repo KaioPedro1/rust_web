@@ -5,13 +5,18 @@ use config::Config;
 pub struct Settings{
     pub database:DatabaseSettings,
     pub app_port: u16,
-    pub redis: RedisSettings
+    pub redis: RedisSettings,
+    pub jwt: Jwt
 }
-
+#[derive(serde::Deserialize)]
+pub struct Jwt{
+    pub expiration: usize
+}
 #[derive(serde::Deserialize)]
 pub struct RedisSettings{
     pub redis_url: String
 }
+
 #[derive(serde::Deserialize)]
 pub struct DatabaseSettings{
     pub username:String,
