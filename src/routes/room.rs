@@ -3,8 +3,8 @@ use std::sync::Mutex;
 use crate::{
     database,
     redis_utils::RedisState,
-    utils::{check_if_cookie_is_valid, open_file_return_http_response_with_cache, FilesOptions},
-    websockets::{Lobby, RoomNotification, LobbyNotification}, model::{ConnectionMessage, self},
+    utils::{ open_file_return_http_response_with_cache, FilesOptions},
+    websockets::{Lobby, RoomNotification, LobbyNotification}, model::{ConnectionMessage, self}, middleware::Authenticated,
 };
 use actix::Addr;
 use actix_web::{
@@ -25,13 +25,13 @@ pub async fn room_get(
     req: HttpRequest,
     connection: web::Data<PgPool>,
     info: web::Path<RoomPath>,
-    redis: Data<Mutex<RedisState>>
+    redis: Data<Mutex<RedisState>>,
+    auth: Authenticated
 ) -> HttpResponse {
-    let (user_uuid,name) = match check_if_cookie_is_valid(&req, connection.clone()).await {
-        Ok(uuid) => uuid,
-        Err(e) => return e,
+    let (user_uuid, name) = match auth.parse(){
+        Some(sucess) => sucess,
+        None => return HttpResponse::InternalServerError().finish(),
     };
-
     let room_uuid = info.room_uuid;
     if let Err(_) =
         database::check_room_exist_in_available_rooms_table(room_uuid, connection.clone()).await
@@ -83,15 +83,15 @@ pub async fn room_get(
 }
 
 pub async fn room_delete(
-    req: HttpRequest,
     connection: web::Data<PgPool>,
     info: web::Path<RoomPath>,
     lobby_srv: Data<Addr<Lobby>>,
     redis: Data<Mutex<RedisState>>,
+    auth: Authenticated
 ) -> HttpResponse {
-    let (user_uuid,_) = match check_if_cookie_is_valid(&req, connection.clone()).await {
-        Ok(uuid) => uuid,
-        Err(e) => return e,
+    let (user_uuid, _) = match auth.parse(){
+        Some(sucess) => sucess,
+        None => return HttpResponse::InternalServerError().finish(),
     };
     match database::get_connection_by_room_and_user(info.room_uuid, user_uuid, connection.clone())
         .await

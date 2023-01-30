@@ -1,9 +1,5 @@
-use actix_web::{http::header::LOCATION,HttpRequest, HttpResponse, web, Responder};
+use actix_web::{HttpRequest, HttpResponse, Responder};
 use actix_files as fs;
-use sqlx::PgPool;
-use uuid::Uuid;
-
-use crate::{database};
 
 pub const LOBBY_UUID:&str = "57a1396b-ac9d-4558-b356-1bf87246a14f";
 
@@ -23,6 +19,7 @@ pub async fn open_file_return_http_response_with_cache(req: &HttpRequest, opt: F
         Err(_) => HttpResponse::InternalServerError().finish(),
     }
 }
+/* 
 pub async fn check_if_cookie_is_valid(
     req: &HttpRequest,
     conn: web::Data<PgPool>,
@@ -52,3 +49,4 @@ pub async fn check_if_cookie_is_valid(
             .finish()),
     }
 }
+*/

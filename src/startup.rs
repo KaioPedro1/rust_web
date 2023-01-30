@@ -3,7 +3,7 @@ use crate::{
         lobby_get, lobby_post, room_get, root_get, root_post, ws_lobby_get,
         ws_room_get, room_delete,
     },
-    websockets::Lobby, redis_utils::{self}, middleware::JwtAuth,
+    websockets::Lobby, redis_utils::{self}, middleware::JwtAuth, configuration::Jwt,
 };
 use actix::Actor;
 use actix_files as fs;
@@ -21,10 +21,12 @@ pub fn run(
     db_pool: Pool<Postgres>,
     redis_connection: Connection,
     pub_sub: Connection,
+    jwt:Jwt
 ) -> Result<Server, std::io::Error> {
     let redis = web::Data::new (Mutex::new(redis_utils::RedisState::new( redis_connection, db_pool.clone())));
     let postgres_pool = web::Data::new(db_pool);
     let lobby_ws_server = web::Data::new(Lobby::new(redis.clone()).start());
+    let jwt_data = web::Data::new(jwt);
     redis_utils::create_channels_and_subscribe(pub_sub, lobby_ws_server.clone());
     let server: Server = HttpServer::new(move || {
         App::new()
@@ -32,7 +34,7 @@ pub fn run(
             .app_data(postgres_pool.clone())
             .app_data(redis.clone())
             .app_data(lobby_ws_server.clone())
-            //.app_data(available_rooms_mutex.clone())
+            .app_data(jwt_data.clone())
             .service(fs::Files::new("/static/css", "static/css"))
             .service(fs::Files::new("/static/js", "static/js"))
             .service(

@@ -1,14 +1,17 @@
 use actix_web::dev::{forward_ready, Service, ServiceRequest, ServiceResponse, Transform};
-use actix_web::{error, http::StatusCode};
-use actix_web::{http::header::ContentType, Error, HttpResponse};
+use actix_web::web::Data;
+use actix_web::{ Error};
 use actix_web::{FromRequest, HttpMessage};
-use derive_more::{Display, Error};
 use futures_util::future::LocalBoxFuture;
+use uuid::Uuid;
 use std::future::{ready, Ready};
 
 use jsonwebtoken::{decode, Algorithm, DecodingKey, Validation};
 
+use crate::configuration::Jwt;
 use crate::model::Claims;
+
+use super::MyError;
 
 //MIDDLEWARE
 pub struct JwtAuth;
@@ -47,11 +50,12 @@ where
     forward_ready!(service);
 
     fn call(&self, req: ServiceRequest) -> Self::Future {
+        let jwt_config = req.app_data::<Data<Jwt>>().unwrap();
         req.cookie("jwt").and_then(|cookie| {
             Some({
                 decode::<Claims>(
                     &cookie.value(),
-                    &DecodingKey::from_secret("secret".as_ref()),
+                    &DecodingKey::from_secret(jwt_config.secret_key.as_ref()),
                     &Validation::new(Algorithm::HS256),
                 )
                 .and_then(|token| Ok(req.extensions_mut().insert(token.claims)))
@@ -61,7 +65,6 @@ where
         let fut = self.service.call(req);
         Box::pin(async move {
             let res = fut.await?;
-            println!("Hi from response");
             Ok(res)
         })
     }
@@ -89,24 +92,18 @@ impl FromRequest for Authenticated {
     }
 }
 
-//error customizado mover isso aqui para algum lugar 
-#[derive(Debug, Display, Error)]
-enum MyError {
-    #[display(fmt = "Invalid token, unauthorized!")]
-    Unauthorized,
-
-}
-
-impl error::ResponseError for MyError {
-    fn error_response(&self) -> HttpResponse {
-        HttpResponse::build(self.status_code())
-            .insert_header(ContentType::html())
-            .body(include_str!("../../static/index.html"))
-    }
-
-    fn status_code(&self) -> StatusCode {
-        match *self {
-            MyError::Unauthorized => StatusCode::UNAUTHORIZED,
+impl Authenticated {
+    pub fn parse(&self)->Option<(Uuid, String)>{
+        let user_id = self.0.sub.clone(); 
+   
+        match Uuid::parse_str(&user_id){
+            Ok(uuid) =>{
+                let name = &self.0.name;
+                Some((uuid,name.to_string()))
+            },
+            Err(_) => {
+                None
+            },
         }
     }
 }

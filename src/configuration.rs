@@ -10,7 +10,8 @@ pub struct Settings{
 }
 #[derive(serde::Deserialize)]
 pub struct Jwt{
-    pub expiration: usize
+    pub expiration: i64,
+    pub secret_key: String
 }
 #[derive(serde::Deserialize)]
 pub struct RedisSettings{

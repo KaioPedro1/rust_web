@@ -1,10 +1,9 @@
 use actix::Addr;
 use actix_web::{HttpRequest, web::{Payload, Data, self}, HttpResponse};
 use actix_web_actors::ws;
-use sqlx::PgPool;
 use uuid::Uuid;
 
-use crate::{websockets::{Lobby, WsConn}, utils::{check_if_cookie_is_valid, LOBBY_UUID}, middleware::Authenticated};
+use crate::{websockets::{Lobby, WsConn}, utils::{ LOBBY_UUID}, middleware::Authenticated};
 
 use super::RoomPath;
 
@@ -32,12 +31,12 @@ pub async fn ws_room_get(
     req: HttpRequest,
     stream: Payload,
     srv: Data<Addr<Lobby>>,
-    conn: Data<PgPool>,
     info: web::Path<RoomPath>,
+    auth: Authenticated
 ) -> HttpResponse {
-    let (user_uuid,_) = match check_if_cookie_is_valid(&req, conn.clone()).await {
-        Ok(uuid) => uuid,
-        Err(e) => return e,
+    let (user_uuid, _) = match auth.parse(){
+        Some(sucess) => sucess,
+        None => return HttpResponse::InternalServerError().finish(),
     };
     let lobby_room_uuid = Uuid::parse_str(info.room_uuid.to_string().as_str()).unwrap();
     let ws = WsConn::new(
