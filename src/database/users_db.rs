@@ -24,16 +24,18 @@ pub async fn insert_user_db(new_user: &User, connection: web::Data<PgPool>) {
 
 pub async fn check_user_id_db(
     user_uuid: Uuid,
-    name:&str,
+    name: &str,
     connection: web::Data<PgPool>,
 ) -> Result<User, sqlx::Error> {
-    let result = sqlx::query!(r#"SELECT name,id FROM users WHERE id = $1 AND name= $2"#, user_uuid,name)
-        .fetch_one(connection.get_ref())
-        .await?;
+    let result = sqlx::query!(
+        r#"SELECT name,id FROM users WHERE id = $1 AND name= $2"#,
+        user_uuid,
+        name
+    )
+    .fetch_one(connection.get_ref())
+    .await?;
     Ok(User {
         name: UserName(result.name.to_string()),
         id: result.id,
     })
 }
-
-

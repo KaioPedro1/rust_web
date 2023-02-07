@@ -1,15 +1,15 @@
-use crate::model::{Room, AvailableRooms, RoomName, MaxNumberOfPlayers};
+use crate::model::{AvailableRooms, MaxNumberOfPlayers, Room, RoomName};
 use actix_web::web;
 use sqlx::types::chrono::Utc;
 use sqlx::{PgPool, Pool, Postgres};
 use uuid::Uuid;
 
-
-pub async fn insert_room_and_available_room_db(new_room: &Room,
+pub async fn insert_room_and_available_room_db(
+    new_room: &Room,
     new_available_room: &AvailableRooms,
-    user_id:&Uuid, 
-    connection: web::Data<PgPool>) 
-->Result<(), sqlx::Error>{
+    user_id: &Uuid,
+    connection: web::Data<PgPool>,
+) -> Result<(), sqlx::Error> {
     let mut tx = connection.get_ref().begin().await?;
     sqlx::query!(
         r#"INSERT INTO rooms (id, name, max_number_of_players, created_at) 
@@ -43,22 +43,23 @@ pub async fn insert_room_and_available_room_db(new_room: &Room,
     tx.commit().await
 }
 
-
 pub async fn check_room_exist_in_available_rooms_table(
     room_uuid: Uuid,
     connection: web::Data<PgPool>,
 ) -> Result<(), sqlx::Error> {
-    let _result = sqlx::query!(r#"SELECT Rooms.id FROM Rooms, AvailableRooms 
+    let _result = sqlx::query!(
+        r#"SELECT Rooms.id FROM Rooms, AvailableRooms 
         WHERE AvailableRooms.room_id = $1 
         AND AvailableRooms.number_of_players < Rooms.max_number_of_players 
-        AND AvailableRooms.is_open = true"#
-        ,room_uuid)
-        .fetch_one(connection.get_ref())
-        .await?;
+        AND AvailableRooms.is_open = true"#,
+        room_uuid
+    )
+    .fetch_one(connection.get_ref())
+    .await?;
     Ok(())
 }
 
-pub async fn initial_rooms_state(pool:Pool<Postgres>)->Result<Vec<Room>,sqlx::Error>{
+pub async fn initial_rooms_state(pool: Pool<Postgres>) -> Result<Vec<Room>, sqlx::Error> {
     let result_query = sqlx::query!(
         r#"SELECT rooms.*
         FROM availablerooms, rooms 
@@ -68,16 +69,16 @@ pub async fn initial_rooms_state(pool:Pool<Postgres>)->Result<Vec<Room>,sqlx::Er
     .fetch_all(&pool)
     .await?;
 
-   let parse_to_room: Vec<Room> = result_query
-    .into_iter()
-    .map(|x| -> Room {
-        Room{
-            id: x.id,
-            name: RoomName(x.name),
-            max_number_players: MaxNumberOfPlayers(x.max_number_of_players),
-        }
-    })
-    .collect();
-    
+    let parse_to_room: Vec<Room> = result_query
+        .into_iter()
+        .map(|x| -> Room {
+            Room {
+                id: x.id,
+                name: RoomName(x.name),
+                max_number_players: MaxNumberOfPlayers(x.max_number_of_players),
+            }
+        })
+        .collect();
+
     Ok(parse_to_room)
 }

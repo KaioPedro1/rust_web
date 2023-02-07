@@ -1,9 +1,10 @@
 use actix::prelude::{Message, Recipient};
-use serde::{Serialize, Deserialize};
+use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
-use crate::model::{MessageRoomType, ActionRoomType, MessageLobbyType, ActionLobbyType, RoomTypes, UserTypes};
-
+use crate::model::{
+    ActionLobbyType, ActionRoomType, MessageLobbyType, MessageRoomType, RoomTypes, UserTypes,
+};
 
 //WsConn responds to this to pipe it through to the actual client
 #[derive(Message)]
@@ -34,7 +35,7 @@ pub struct RoomNotification {
     pub action: ActionRoomType,
     pub user: Uuid,
     pub room: Uuid,
-    pub redirect: Option<String>
+    pub redirect: Option<String>,
 }
 
 #[derive(Message, Debug, Serialize, Deserialize, PartialEq)]
@@ -44,5 +45,5 @@ pub struct LobbyNotification {
     pub action: Option<ActionLobbyType>,
     pub room: RoomTypes,
     pub user: Option<UserTypes>,
-    pub sender_uuid:Uuid
+    pub sender_uuid: Uuid,
 }

@@ -1,10 +1,9 @@
-mod root;
 mod lobby;
-mod ws_conn;
 mod room;
+mod root;
+mod ws_conn;
 
-pub use root::*;
 pub use lobby::*;
-pub use ws_conn::*;
 pub use room::*;
-
+pub use root::*;
+pub use ws_conn::*;

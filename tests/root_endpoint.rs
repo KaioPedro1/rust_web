@@ -20,12 +20,12 @@ async fn root_check_valid_endpoint_post_return_200(){
     let body="name=cleber";
 
     let response:Response= client.post(&format!("{}/", app.address))
-        .header("Content-Type","application/x-www-form-urlencoded") 
-        .body(body)                               
+        .header("Content-Type","application/x-www-form-urlencoded")
+        .body(body)
         .send()
         .await
         .expect("Test failed");
-        
+
     assert_eq!(200, response.status().as_u16());
     assert_eq!("/lobby", response.headers().get("location").unwrap());
 }
@@ -46,11 +46,11 @@ async fn root_check_invalid_endpoint_post_return_400(){
                 .body(invalid_body)
                 .send()
                 .await
-                .expect("Test failed"); 
-                
-                assert_eq!(400, 
+                .expect("Test failed");
+
+                assert_eq!(400,
                 response.status().as_u16(),
                 "The API did not fail with 400 Bad Request when the payload was {}.",
                 error_message);
-            }    
+            }
 } */

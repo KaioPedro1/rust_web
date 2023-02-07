@@ -1,10 +1,10 @@
 use actix_web::dev::{forward_ready, Service, ServiceRequest, ServiceResponse, Transform};
 use actix_web::web::Data;
-use actix_web::{ Error};
+use actix_web::Error;
 use actix_web::{FromRequest, HttpMessage};
 use futures_util::future::LocalBoxFuture;
-use uuid::Uuid;
 use std::future::{ready, Ready};
+use uuid::Uuid;
 
 use jsonwebtoken::{decode, Algorithm, DecodingKey, Validation};
 
@@ -93,17 +93,15 @@ impl FromRequest for Authenticated {
 }
 
 impl Authenticated {
-    pub fn parse(&self)->Option<(Uuid, String)>{
-        let user_id = self.0.sub.clone(); 
-   
-        match Uuid::parse_str(&user_id){
-            Ok(uuid) =>{
+    pub fn parse(&self) -> Option<(Uuid, String)> {
+        let user_id = self.0.sub.clone();
+
+        match Uuid::parse_str(&user_id) {
+            Ok(uuid) => {
                 let name = &self.0.name;
-                Some((uuid,name.to_string()))
-            },
-            Err(_) => {
-                None
-            },
+                Some((uuid, name.to_string()))
+            }
+            Err(_) => None,
         }
     }
 }

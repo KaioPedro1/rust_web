@@ -4,12 +4,14 @@ use actix::Addr;
 use actix_web::web::Data;
 use redis::Connection;
 
-use crate::{websockets::{Lobby, LobbyNotification}};
+use crate::websockets::{lobby_messages::LobbyNotification, Lobby};
 
-
-pub fn create_channels_and_subscribe(mut pub_sub_conn:Connection, addr_actor_lobby: Data<Addr<Lobby>>){
-    let (tx, rx) = mpsc::channel(); 
-    std::thread::spawn(move || {    
+pub fn create_channels_and_subscribe(
+    mut pub_sub_conn: Connection,
+    addr_actor_lobby: Data<Addr<Lobby>>,
+) {
+    let (tx, rx) = mpsc::channel();
+    std::thread::spawn(move || {
         let mut pubsub = pub_sub_conn.as_pubsub();
         pubsub.subscribe("lobby").unwrap();
         loop {
@@ -21,22 +23,24 @@ pub fn create_channels_and_subscribe(mut pub_sub_conn:Connection, addr_actor_lob
                 _ => {}
             }
         }
-    }); 
-     std::thread::spawn(move || {
-        loop {
-            match rx.recv() {
-                Ok(payload) => {
-                    let message_serialized: LobbyNotification = serde_json::from_str(&payload).unwrap();
-                    match message_serialized.msg_type{
-                        crate::model::MessageLobbyType::UpdateRoom =>addr_actor_lobby.do_send(message_serialized),
-                        crate::model::MessageLobbyType::Initial => println!("Error, thats not suposse to be here"),
-                        crate::model::MessageLobbyType::UpdatePlayer => addr_actor_lobby.do_send(message_serialized)
+    });
+    std::thread::spawn(move || loop {
+        match rx.recv() {
+            Ok(payload) => {
+                let message_serialized: LobbyNotification = serde_json::from_str(&payload).unwrap();
+                match message_serialized.msg_type {
+                    crate::model::MessageLobbyType::UpdateRoom => {
+                        addr_actor_lobby.do_send(message_serialized)
+                    }
+                    crate::model::MessageLobbyType::Initial => {
+                        println!("Error, thats not suposse to be here")
+                    }
+                    crate::model::MessageLobbyType::UpdatePlayer => {
+                        addr_actor_lobby.do_send(message_serialized)
                     }
                 }
-                _ => {}
             }
+            _ => {}
         }
     });
-   
 }
-

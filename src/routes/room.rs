@@ -2,9 +2,14 @@ use std::sync::Mutex;
 
 use crate::{
     database,
+    middleware::Authenticated,
+    model::{self, ConnectionMessage},
     redis_utils::RedisState,
-    utils::{ open_file_return_http_response_with_cache, FilesOptions},
-    websockets::{Lobby, RoomNotification, LobbyNotification}, model::{ConnectionMessage, self}, middleware::Authenticated,
+    utils::{open_file_return_http_response_with_cache, FilesOptions},
+    websockets::{
+        lobby_messages::{LobbyNotification, RoomNotification},
+        Lobby,
+    },
 };
 use actix::Addr;
 use actix_web::{
@@ -26,9 +31,9 @@ pub async fn room_get(
     connection: web::Data<PgPool>,
     info: web::Path<RoomPath>,
     redis: Data<Mutex<RedisState>>,
-    auth: Authenticated
+    auth: Authenticated,
 ) -> HttpResponse {
-    let (user_uuid, name) = match auth.parse(){
+    let (user_uuid, name) = match auth.parse() {
         Some(sucess) => sucess,
         None => return HttpResponse::InternalServerError().finish(),
     };
@@ -47,33 +52,34 @@ pub async fn room_get(
         Err(_) => {
             match database::insert_connection_db(room_uuid, user_uuid, connection.clone()).await {
                 Ok(_) => {
-                    let mut redis_unlock = redis
-                        .lock()
-                        .unwrap();    
-                    let message = serde_json::to_string(&LobbyNotification{ 
-                            msg_type: crate::model::MessageLobbyType::UpdatePlayer, 
-                            action:Some(crate::model::ActionLobbyType::Enter), 
-                            room: model::RoomTypes::Uuid(room_uuid), 
-                            user: Some(model::UserTypes::Connection(ConnectionMessage { user_id: user_uuid, room_id: room_uuid, is_admin: false, name:name.clone() })), 
-                            sender_uuid: user_uuid
-                            }
-                        )
-                        .unwrap();
+                    let mut redis_unlock = redis.lock().unwrap();
+                    let message = serde_json::to_string(&LobbyNotification {
+                        msg_type: crate::model::MessageLobbyType::UpdatePlayer,
+                        action: Some(crate::model::ActionLobbyType::Enter),
+                        room: model::RoomTypes::Uuid(room_uuid),
+                        user: Some(model::UserTypes::Connection(ConnectionMessage {
+                            user_id: user_uuid,
+                            room_id: room_uuid,
+                            is_admin: false,
+                            name: name.clone(),
+                        })),
+                        sender_uuid: user_uuid,
+                    })
+                    .unwrap();
                     redis_unlock
-                        .insert_connection(ConnectionMessage{ 
-                            user_id: user_uuid, 
-                            room_id: room_uuid, 
-                            is_admin: false, 
-                            name})
+                        .insert_connection(ConnectionMessage {
+                            user_id: user_uuid,
+                            room_id: room_uuid,
+                            is_admin: false,
+                            name,
+                        })
                         .unwrap();
-                    redis_unlock
-                        .publish_connection_to_lobby(message)
-                        .unwrap();
-                        
+                    redis_unlock.publish_connection_to_lobby(message).unwrap();
+
                     HttpResponse::Ok()
                         .append_header(("Cache-control", "no-cache"))
                         .body(include_str!("../../static/room.html"))
-                    },
+                }
                 Err(_) => HttpResponse::TemporaryRedirect()
                     .append_header((LOCATION, "/lobby"))
                     .finish(),
@@ -87,9 +93,9 @@ pub async fn room_delete(
     info: web::Path<RoomPath>,
     lobby_srv: Data<Addr<Lobby>>,
     redis: Data<Mutex<RedisState>>,
-    auth: Authenticated
+    auth: Authenticated,
 ) -> HttpResponse {
-    let (user_uuid, _) = match auth.parse(){
+    let (user_uuid, _) = match auth.parse() {
         Some(sucess) => sucess,
         None => return HttpResponse::InternalServerError().finish(),
     };

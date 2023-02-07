@@ -1,12 +1,15 @@
-use actix_web::{error, http::{StatusCode, header::LOCATION}, HttpResponse};
+use actix_web::{
+    error,
+    http::{header::LOCATION, StatusCode},
+    HttpResponse,
+};
 use derive_more::{Display, Error};
 
-//error customizado mover isso aqui para algum lugar 
+//error customizado mover isso aqui para algum lugar
 #[derive(Debug, Display, Error)]
 pub enum MyError {
     #[display(fmt = "Invalid token, unauthorized!")]
     Unauthorized,
-
 }
 
 impl error::ResponseError for MyError {

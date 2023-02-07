@@ -4,7 +4,7 @@ use actix_web::web::{self};
 use sqlx::{PgPool, Pool, Postgres};
 use uuid::Uuid;
 
-use crate::model::{ConnectionTuple, ConnectionMessage};
+use crate::model::{ConnectionMessage, ConnectionTuple};
 
 pub async fn insert_connection_db(
     room_uuid: Uuid,
@@ -41,7 +41,7 @@ pub async fn get_connection_by_room_and_user(
 
 pub async fn delete_room_connections_close_room(
     room_uuid: Uuid,
-    connection: Arc<Pool<Postgres>>
+    connection: Arc<Pool<Postgres>>,
 ) -> Result<(), sqlx::Error> {
     let mut tx = connection.begin().await?;
 
@@ -94,8 +94,10 @@ pub async fn disconnect_user_and_set_new_admin_if_needed(
     tx.commit().await
 }
 
-pub async fn connections_initial_state(pool:Pool<Postgres>)->Result<Vec<ConnectionMessage>, sqlx::Error>{
-   sqlx::query_as!(
+pub async fn connections_initial_state(
+    pool: Pool<Postgres>,
+) -> Result<Vec<ConnectionMessage>, sqlx::Error> {
+    sqlx::query_as!(
         ConnectionMessage,
         r#"SELECT connections.*, users.name 
         FROM users, connections 

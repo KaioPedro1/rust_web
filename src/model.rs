@@ -1,4 +1,4 @@
-use serde::{Serialize, Deserialize};
+use serde::{Deserialize, Serialize};
 use unicode_segmentation::UnicodeSegmentation;
 use uuid::Uuid;
 
@@ -7,12 +7,12 @@ pub struct ConnectionTuple {
     pub room_id: Uuid,
     pub is_admin: bool,
 }
-#[derive(Debug, Serialize,Deserialize,PartialEq)]
+#[derive(Debug, Serialize, Deserialize, PartialEq)]
 pub struct User {
     pub name: UserName,
     pub id: Uuid,
 }
-#[derive(Debug, Serialize,Deserialize,PartialEq)]
+#[derive(Debug, Serialize, Deserialize, PartialEq)]
 pub struct UserName(pub String);
 impl UserName {
     pub fn parse(s: String) -> Result<UserName, String> {
@@ -41,13 +41,13 @@ pub struct AvailableRooms {
     pub number_of_players: i32,
     pub is_open: bool,
 }
-#[derive(Debug, Serialize, Deserialize,Clone, PartialEq)]
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
 pub struct Room {
     pub id: Uuid,
     pub name: RoomName,
     pub max_number_players: MaxNumberOfPlayers,
 }
-#[derive(Debug, Serialize, Deserialize,Clone, PartialEq)]
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
 pub struct RoomName(pub String);
 impl RoomName {
     pub fn parse(s: String) -> Result<RoomName, String> {
@@ -68,7 +68,7 @@ impl AsRef<str> for RoomName {
         &self.0
     }
 }
-#[derive(Debug, Serialize, Deserialize,Clone, PartialEq)]
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
 pub struct MaxNumberOfPlayers(pub i32);
 impl MaxNumberOfPlayers {
     pub fn parse(n: i32) -> Result<MaxNumberOfPlayers, String> {
@@ -88,56 +88,54 @@ impl AsRef<i32> for MaxNumberOfPlayers {
     }
 }
 
-#[derive(Debug, Serialize,Deserialize,PartialEq)]
+#[derive(Debug, Serialize, Deserialize, PartialEq)]
 pub enum ActionLobbyType {
     Add,
     Delete,
     Enter,
-    Leave
+    Leave,
 }
-#[derive(Debug, Serialize,Deserialize,PartialEq)]
+#[derive(Debug, Serialize, Deserialize, PartialEq)]
 pub enum MessageLobbyType {
     UpdateRoom,
     UpdatePlayer,
-    Initial
+    Initial,
 }
-#[derive(Debug, Serialize,Deserialize,PartialEq)]
+#[derive(Debug, Serialize, Deserialize, PartialEq)]
 pub enum RoomTypes {
     Room(Room),
     Uuid(Uuid),
-    Rooms(Vec<Room>)
+    Rooms(Vec<Room>),
 }
-#[derive(Debug, Serialize,Deserialize,PartialEq)]
+#[derive(Debug, Serialize, Deserialize, PartialEq)]
 pub enum UserTypes {
     Uuid(Uuid),
     Connections(Vec<ConnectionMessage>),
-    Connection(ConnectionMessage)
+    Connection(ConnectionMessage),
 }
-#[derive(Debug, Serialize,Deserialize)]
+#[derive(Debug, Serialize, Deserialize)]
 pub enum MessageRoomType {
     Notification,
     Redirect,
 }
-#[derive(Debug, Serialize,Deserialize)]
+#[derive(Debug, Serialize, Deserialize)]
 pub enum ActionRoomType {
     Enter,
     Leave,
     Delete,
 }
 
-#[derive(Debug, Serialize, Deserialize,PartialEq, Clone)]
-pub struct ConnectionMessage{
+#[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]
+pub struct ConnectionMessage {
     pub user_id: Uuid,
-    pub room_id:Uuid,
+    pub room_id: Uuid,
     pub is_admin: bool,
-    pub name: String
+    pub name: String,
 }
 
-#[derive(Debug, Serialize, Deserialize,Clone)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct Claims {
     pub sub: String,
     pub name: String,
     pub exp: usize,
 }
-
-

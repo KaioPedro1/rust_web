@@ -13,7 +13,7 @@ use crate::{
     model::{self, AvailableRooms, ConnectionMessage, MaxNumberOfPlayers, Room, RoomName},
     redis_utils::RedisState,
     utils::{open_file_return_http_response_with_cache, FilesOptions},
-    websockets::LobbyNotification,
+    websockets::lobby_messages::LobbyNotification,
 };
 
 pub async fn lobby_get(req: HttpRequest, _: Authenticated) -> HttpResponse {
@@ -30,13 +30,13 @@ pub async fn lobby_post(
     connection: web::Data<PgPool>,
     user_input: web::Form<UserInput>,
     redis: Data<Mutex<RedisState>>,
-    auth: Authenticated
+    auth: Authenticated,
 ) -> HttpResponse {
-    let (user_uuid, name) = match auth.parse(){
+    let (user_uuid, name) = match auth.parse() {
         Some(sucess) => sucess,
         None => return HttpResponse::InternalServerError().finish(),
     };
- 
+
     let (new_room, new_available_room) = validade_and_build_room(user_input.0).unwrap();
 
     match database::insert_room_and_available_room_db(

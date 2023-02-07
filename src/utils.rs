@@ -1,15 +1,17 @@
-use actix_web::{HttpRequest, HttpResponse, Responder};
 use actix_files as fs;
+use actix_web::{HttpRequest, HttpResponse, Responder};
 
-pub const LOBBY_UUID:&str = "57a1396b-ac9d-4558-b356-1bf87246a14f";
-
+pub const LOBBY_UUID: &str = "57a1396b-ac9d-4558-b356-1bf87246a14f";
 
 pub enum FilesOptions {
     Lobby,
     Room,
 }
 
-pub async fn open_file_return_http_response_with_cache(req: &HttpRequest, opt: FilesOptions) -> HttpResponse {
+pub async fn open_file_return_http_response_with_cache(
+    req: &HttpRequest,
+    opt: FilesOptions,
+) -> HttpResponse {
     let file_path = match opt {
         FilesOptions::Lobby => "./static/lobby.html",
         FilesOptions::Room => "./static/room.html",
@@ -19,7 +21,7 @@ pub async fn open_file_return_http_response_with_cache(req: &HttpRequest, opt: F
         Err(_) => HttpResponse::InternalServerError().finish(),
     }
 }
-/* 
+/*
 pub async fn check_if_cookie_is_valid(
     req: &HttpRequest,
     conn: web::Data<PgPool>,

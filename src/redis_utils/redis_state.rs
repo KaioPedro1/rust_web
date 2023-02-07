@@ -96,15 +96,19 @@ impl RedisState {
         let mut conn_locked = self.connection.try_lock().unwrap();
 
         let vec: Vec<String> = conn_locked.hvals("Connections")?;
-       // let t: ConnectionMessage = serde_json::from_str(x).unwrap();
-        for conn_string in vec{
+        // let t: ConnectionMessage = serde_json::from_str(x).unwrap();
+        for conn_string in vec {
             let mut deser_conn: ConnectionMessage = serde_json::from_str(&conn_string).unwrap();
-                if deser_conn.room_id==room_id && deser_conn.user_id==new_admin_id{
-                    deser_conn.is_admin=true;
-                    let msg = serde_json::to_string(&deser_conn).unwrap();
-                    let _: () = conn_locked.hset("Connections", deser_conn.user_id.to_string()+"/"+&deser_conn.room_id.to_string(),msg)?;
-                }
-        };
+            if deser_conn.room_id == room_id && deser_conn.user_id == new_admin_id {
+                deser_conn.is_admin = true;
+                let msg = serde_json::to_string(&deser_conn).unwrap();
+                let _: () = conn_locked.hset(
+                    "Connections",
+                    deser_conn.user_id.to_string() + "/" + &deser_conn.room_id.to_string(),
+                    msg,
+                )?;
+            }
+        }
         Ok(())
     }
 }

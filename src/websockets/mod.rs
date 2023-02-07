@@ -1,7 +1,5 @@
-pub mod ws;
-pub mod messages;
 pub mod lobby_ws;
+pub mod game_ws;
 
-pub use ws::*;
-pub use messages::*;
 pub use lobby_ws::*;
+pub use game_ws::*;

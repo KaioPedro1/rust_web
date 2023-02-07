@@ -12,6 +12,7 @@
 <body>
   <h1>Só se eu for adm</h1>
   <button onclick="deleteCurrentPage()">Fechar sala</button>
+  <button> Iniciar jogo</button>
   REEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEE
 </body>
 <script> 
@@ -21,9 +22,9 @@
       method: 'DELETE'
     }).then(res => res.status == 204 ? window.location.replace(`${window.location.origin}/lobby`) : console.log("Não foi possivel deletar a sala, resposta não do servidor foi " + res.status));
   }
-  var socket = null
+  var socket_lobby = null
 
-  function connect() {
+  function connect_ws_lobby() {
     disconnect()
 
     const { location } = window
@@ -31,13 +32,13 @@
     const proto = location.protocol.startsWith('https') ? 'wss' : 'ws'
     const wsUri = `${proto}://${location.host}${location.pathname}/ws`
 
-    socket = new WebSocket(wsUri)
+    socket_lobby = new WebSocket(wsUri)
 
-    socket.onopen = () => {
+    socket_lobby.onopen = () => {
       console.log("Eu entrei")
     }
 
-    socket.onmessage = (ev) => {
+    socket_lobby.onmessage = (ev) => {
       let msg_parsed = JSON.parse(ev.data)
       switch (msg_parsed.msg_type) {
         case 'Notification':
@@ -51,21 +52,21 @@
       }
     }
 
-    socket.onclose = () => {
-      socket = null
+    socket_lobby.onclose = () => {
+      socket_lobby = null
     }
   }
 
   function disconnect() {
-    if (socket) {
-      socket.close()
-      socket = null
+    if (socket_lobby) {
+      socket_lobby.close()
+      socket_lobby = null
     }
   }
   
-  connect()
+  connect_ws_lobby()
   window.onbeforeunload = function () {
-    socket.close();
+    socket_lobby.close();
   };
 </script>
 

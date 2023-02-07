@@ -1,19 +1,20 @@
-use super::{LobbyNotification, RoomNotification};
-use crate::{database, model};
+pub mod lobby_messages;
+pub mod ws_l;
 use crate::model::ActionRoomType::Enter;
 use crate::model::MessageLobbyType::Initial;
 use crate::model::MessageRoomType::Notification;
-
 use crate::redis_utils::RedisState;
 use crate::utils::LOBBY_UUID;
-use crate::websockets::messages::{Connect, Disconnect, WsMessage};
+use crate::{database, model};
+
 use actix::prelude::{Actor, Context, Handler, Recipient};
 use actix_web::web::Data;
 
-
 use std::collections::{HashMap, HashSet};
-use std::sync::{Mutex, Arc};
+use std::sync::{Arc, Mutex};
 use uuid::Uuid;
+
+use self::lobby_messages::{Connect, Disconnect, LobbyNotification, RoomNotification, WsMessage};
 
 type Socket = Recipient<WsMessage>;
 
@@ -105,7 +106,7 @@ impl Handler<Disconnect> for Lobby {
                     lobby.remove(&msg.id);
                 }
             }
-        } else {  
+        } else {
             let conn_pull = self.redis.lock().unwrap().pg_pool.clone();
             if self.sessions.remove(&msg.id).is_some() {
                 if let Some(room) = self.rooms.get_mut(&msg.room_id) {
@@ -113,44 +114,54 @@ impl Handler<Disconnect> for Lobby {
                         room.remove(&msg.id);
                         let new_admin = room.iter().next().unwrap().clone();
                         let redis_help = Arc::clone(&self.redis);
-                        tokio::spawn(async move {                        
+                        tokio::spawn(async move {
                             match database::disconnect_user_and_set_new_admin_if_needed(
                                 msg.id,
                                 new_admin,
                                 msg.room_id,
                                 conn_pull,
                             )
-                            .await{
-                                Ok(_) =>{ 
+                            .await
+                            {
+                                Ok(_) => {
                                     let mut mutable_redis = redis_help.lock().unwrap();
-                                    let notification = serde_json::to_string(&LobbyNotification{ 
-                                        msg_type: crate::model::MessageLobbyType::UpdatePlayer, 
-                                        action:Some(crate::model::ActionLobbyType::Leave), 
-                                        room: model::RoomTypes::Uuid(msg.room_id), 
-                                        user: Some(model::UserTypes::Uuid(new_admin)), 
-                                        sender_uuid: msg.id
-                                        }
-                                    )
+                                    let notification = serde_json::to_string(&LobbyNotification {
+                                        msg_type: crate::model::MessageLobbyType::UpdatePlayer,
+                                        action: Some(crate::model::ActionLobbyType::Leave),
+                                        room: model::RoomTypes::Uuid(msg.room_id),
+                                        user: Some(model::UserTypes::Uuid(new_admin)),
+                                        sender_uuid: msg.id,
+                                    })
                                     .unwrap();
-                                    mutable_redis.remove_connection(msg.id.to_string()+"/"+&msg.room_id.to_string()).unwrap();
-                                    mutable_redis.update_admin(msg.room_id,new_admin).unwrap();
-                                    mutable_redis.publish_connection_to_lobby(notification).unwrap();
-                                },
+                                    mutable_redis
+                                        .remove_connection(
+                                            msg.id.to_string() + "/" + &msg.room_id.to_string(),
+                                        )
+                                        .unwrap();
+                                    mutable_redis.update_admin(msg.room_id, new_admin).unwrap();
+                                    mutable_redis
+                                        .publish_connection_to_lobby(notification)
+                                        .unwrap();
+                                }
                                 Err(_) => {
                                     let mut mutable_redis = redis_help.lock().unwrap();
-                                    let notification = serde_json::to_string(&LobbyNotification{ 
-                                        msg_type: crate::model::MessageLobbyType::UpdatePlayer, 
-                                        action:Some(crate::model::ActionLobbyType::Leave), 
-                                        room: model::RoomTypes::Uuid(msg.room_id), 
-                                        user: None, 
-                                        sender_uuid: msg.id
-                                        }
-                                    )
+                                    let notification = serde_json::to_string(&LobbyNotification {
+                                        msg_type: crate::model::MessageLobbyType::UpdatePlayer,
+                                        action: Some(crate::model::ActionLobbyType::Leave),
+                                        room: model::RoomTypes::Uuid(msg.room_id),
+                                        user: None,
+                                        sender_uuid: msg.id,
+                                    })
                                     .unwrap();
-                                    mutable_redis.remove_connection(msg.id.to_string()+"/"+&msg.room_id.to_string()).unwrap();
-                                    mutable_redis.publish_connection_to_lobby(notification).unwrap();
-                                    
-                                },
+                                    mutable_redis
+                                        .remove_connection(
+                                            msg.id.to_string() + "/" + &msg.room_id.to_string(),
+                                        )
+                                        .unwrap();
+                                    mutable_redis
+                                        .publish_connection_to_lobby(notification)
+                                        .unwrap();
+                                }
                             };
                         });
                     } else {
@@ -158,20 +169,22 @@ impl Handler<Disconnect> for Lobby {
                             database::delete_room_connections_close_room(msg.room_id, conn_pull)
                                 .await
                                 .unwrap();
-                        });  
+                        });
                         let mut redis_lock = self.redis.lock().unwrap();
-                        room
-                            .iter()
-                            .for_each(|user_id| {
-                                redis_lock.remove_connection(user_id.to_string()+"/"+&msg.room_id.to_string()).unwrap();
-                            });
-                        
+                        room.iter().for_each(|user_id| {
+                            redis_lock
+                                .remove_connection(
+                                    user_id.to_string() + "/" + &msg.room_id.to_string(),
+                                )
+                                .unwrap();
+                        });
+
                         let serialized = serde_json::to_string(&LobbyNotification {
                             msg_type: crate::model::MessageLobbyType::UpdateRoom,
                             action: Some(crate::model::ActionLobbyType::Delete),
                             room: crate::model::RoomTypes::Uuid(msg.room_id),
                             user: Some(crate::model::UserTypes::Uuid(msg.id)),
-                            sender_uuid: msg.id
+                            sender_uuid: msg.id,
                         })
                         .unwrap();
 
@@ -195,9 +208,11 @@ impl Handler<LobbyNotification> for Lobby {
 
         if msg.msg_type == Initial {
             if let Some(user_uuid) = msg.user {
-                match user_uuid{
-                    crate::model::UserTypes::Connections(_) =>  self.send_message(serialized_lobby.as_str(), &msg.sender_uuid),
-                    _=>println!("Invalid user id, check messages type")
+                match user_uuid {
+                    crate::model::UserTypes::Connections(_) => {
+                        self.send_message(serialized_lobby.as_str(), &msg.sender_uuid)
+                    }
+                    _ => println!("Invalid user id, check messages type"),
                 }
             } else {
                 println!("Couldn't find user uuid")
@@ -220,7 +235,9 @@ impl Handler<RoomNotification> for Lobby {
         match self.rooms.get(&msg.room) {
             Some(hset) => {
                 let room_notification_serialized = serde_json::to_string(&msg).unwrap();
-                hset.iter().for_each(|client| {
+                hset
+                    .iter()
+                    .for_each(|client| {
                     self.send_message(room_notification_serialized.as_str(), client)
                 });
             }
