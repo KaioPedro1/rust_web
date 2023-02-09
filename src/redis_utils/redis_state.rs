@@ -111,6 +111,14 @@ impl RedisState {
         }
         Ok(())
     }
+
+    pub fn get_connection_by_id(&mut self, room_id: Uuid, user_id: Uuid)->Result<ConnectionMessage, RedisError>{
+        let mut conn_locked = self.connection.try_lock().unwrap();
+        let field = user_id.to_string()+"/"+&room_id.to_string();
+        let conn_data: String = conn_locked.hget("Connections", field)?;
+        let parsed_data:ConnectionMessage = serde_json::from_str(&conn_data).unwrap();
+        Ok(parsed_data)
+    }
 }
 
 pub async fn set_initial_redis_state(

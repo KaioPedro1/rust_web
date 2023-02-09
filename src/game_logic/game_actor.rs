@@ -1,20 +1,24 @@
 use std::collections::{HashMap, VecDeque};
 
-use super::{Deck, Player, HashMapWinnersKey, TeamWinnerValue, TurnManager};
+use actix::{Actor, Context, Handler};
+
+use crate::websockets::lobby_messages::WsMessage;
+
+use super::{Deck, Player, HashMapWinnersKey, TeamWinnerValue, TurnManager, game_actor_messages::NewGame};
 
 
 #[derive(Debug)]
-pub struct RoundManager {
+pub struct GameManager {
     pub round: u64,
     pub deck: Deck,
     pub players: VecDeque<Player>,
     pub round_winners: HashMap<HashMapWinnersKey, i32>,
 }
-impl RoundManager {
-    pub fn new(players: VecDeque<Player>) -> RoundManager {
+impl GameManager {
+    pub fn new(players: VecDeque<Player>) -> GameManager {
         let mut deck = Deck::default();
         deck.deck_setup();
-        RoundManager {
+        GameManager {
             round: 1,
             deck,
             players,
@@ -26,7 +30,9 @@ impl RoundManager {
             if let Some(_) = player.hand {
                 player.hand.as_mut().unwrap().clear();
             }
-            player.hand = Some(self.deck.draw_cards())
+            player.hand = Some(self.deck.draw_cards());
+            let serialized = serde_json::to_string(&player.hand).unwrap();
+            player.ws_addr.do_send(WsMessage(serialized));
         }
     }
     fn set_new_starter(&mut self) {
@@ -79,5 +85,16 @@ impl RoundManager {
             self.insert_round_winner(Some(round_winner));
             self.next_round();
         }
+    }
+}
+
+impl Actor for GameManager{
+    type Context = Context<Self>;
+}
+
+impl Handler<NewGame> for GameManager {
+    type Result = ();
+    fn handle(&mut self, msg: NewGame, _: &mut Self::Context) -> Self::Result {
+        self.deal_cards();
     }
 }

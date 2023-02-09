@@ -9,7 +9,7 @@ use uuid::Uuid;
 use crate::{
     middleware::Authenticated,
     utils::LOBBY_UUID,
-    websockets::{ws_l::WsConn, Lobby},
+    websockets::{ws::WsConn, Lobby},
 };
 
 use super::RoomPath;
@@ -41,18 +41,4 @@ pub async fn ws_room_get(
     let ws = WsConn::new(user_uuid, lobby_room_uuid, srv.get_ref().clone());
     ws::start(ws, &req, stream).unwrap()
 }
-pub async fn ws_room_game(
-    req: HttpRequest,
-    stream: Payload,
-    srv: Data<Addr<Lobby>>,
-    info: web::Path<RoomPath>,
-    auth: Authenticated,
-) -> HttpResponse {
-    let (user_uuid, _) = match auth.parse() {
-        Some(sucess) => sucess,
-        None => return HttpResponse::InternalServerError().finish(),
-    };
-    let room_uuid = Uuid::parse_str(info.room_uuid.to_string().as_str()).unwrap();
-    
-    HttpResponse::Ok().finish()
-}
+

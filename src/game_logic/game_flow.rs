@@ -125,7 +125,7 @@ impl TurnManager {
             if let Some(player) = self
                 .players
                 .iter_mut()
-                .find(|p| p.name == played_card.player.name)
+                .find(|p| p.id == played_card.player.id)
             {
                 player.remove_card(played_card.card);
             }
@@ -227,7 +227,7 @@ impl Turn {
         for p in players_rc.iter() {
             if p.team_id != player_caller.team_id {
                 let player = p;
-                let awnser = player.answer_truco_action(&player_caller.name);
+                let awnser = player.answer_truco_action(&player_caller.id.to_string());
                 player_answers.push((player.clone(), awnser));
             }
         }

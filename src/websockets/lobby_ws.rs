@@ -1,5 +1,7 @@
 pub mod lobby_messages;
-pub mod ws_l;
+pub mod ws;
+use crate::game_logic::game_actor_messages::NewGame;
+use crate::game_logic::{Player, GameManager};
 use crate::model::ActionRoomType::Enter;
 use crate::model::MessageLobbyType::Initial;
 use crate::model::MessageRoomType::Notification;
@@ -10,11 +12,11 @@ use crate::{database, model};
 use actix::prelude::{Actor, Context, Handler, Recipient};
 use actix_web::web::Data;
 
-use std::collections::{HashMap, HashSet};
+use std::collections::{HashMap, HashSet, VecDeque};
 use std::sync::{Arc, Mutex};
 use uuid::Uuid;
 
-use self::lobby_messages::{Connect, Disconnect, LobbyNotification, RoomNotification, WsMessage};
+use self::lobby_messages::{Connect, Disconnect, LobbyNotification, RoomNotification, WsMessage, GameSocketInput};
 
 type Socket = Recipient<WsMessage>;
 
@@ -244,4 +246,30 @@ impl Handler<RoomNotification> for Lobby {
             None => println!("Empty room"),
         }
     }
+}
+impl Handler<GameSocketInput> for Lobby{
+    type Result = ();
+    fn handle(&mut self, msg: GameSocketInput, _: &mut Self::Context) -> Self::Result {
+        let r = self.rooms.get(&msg.room);
+        if let Some(players_in_room) = r {
+            if players_in_room.len() == 2 {
+                match self.redis.lock().unwrap().get_connection_by_id(msg.room, msg.user) {
+                    Ok(ms) => {  
+                        if ms.is_admin {
+                            //cria um novo actor para gerenciar o jogo
+                            let mut vecd:VecDeque<Player>= VecDeque::new();
+                            for (index,p) in players_in_room.iter().enumerate() {
+                                let addr  = self.sessions.get(p).unwrap();
+                                let player = Player::new(*p, (index%2).try_into().unwrap(), addr.clone());
+                                vecd.push_back(player);   
+                            }
+                            let act = GameManager::new(vecd).start();
+                            act.do_send(NewGame{teste:"HUE".to_string()});
+                        }
+                    },
+                    Err(e) => println!("{:?}",e),
+                };
+            }
+        }
+    }    
 }

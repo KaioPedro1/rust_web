@@ -4,28 +4,37 @@ use std::{
     rc::Rc,
 };
 
+
+use actix::{ Recipient};
+use serde::Serialize;
+use uuid::Uuid;
+
+use crate::websockets::{lobby_messages::WsMessage};
+
 use super::{Card, PlayerAnswerTruco, UserAction, Truco};
 
 
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Player {
-    pub name: String,
+    pub id: Uuid,
     pub hand: Option<Vec<Card>>,
     pub team_id: i32,
+    pub ws_addr: Recipient<WsMessage>
 }
 impl Player {
-    pub fn new(name: String, team: i32) -> Player {
+    pub fn new(id: Uuid, team: i32, addr: Recipient<WsMessage>) -> Player {
         Player {
-            name,
+            id,
             hand: None,
             team_id: team,
+            ws_addr:addr
         }
     }
     pub fn answer_truco_action(&self, asker: &String) -> PlayerAnswerTruco {
         println!(
             "Hey {:?}, {:?} is asking for truco do you accept it?",
-            self.name, asker
+            self.id, asker
         );
         println!("0: Yes");
         println!("1: No");
@@ -65,7 +74,7 @@ impl Player {
         let state = truco_state.borrow();
         println!(
             "{:?} team:{:?},  your options are:",
-            self.name, self.team_id
+            self.id, self.team_id
         );
         for (index, card) in self.hand.as_ref().unwrap().iter().enumerate() {
             println!("{:?}:{:?}", index, card);

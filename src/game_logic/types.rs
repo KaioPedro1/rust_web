@@ -1,3 +1,5 @@
+use serde::Serialize;
+
 use super::{ Player};
 
 #[derive(Eq, Hash, PartialEq, Debug, Clone)]
@@ -11,7 +13,7 @@ pub struct PlayedCard {
     pub player: Player,
     pub card: Card,
 }
-#[derive(Debug, PartialEq, Clone, Copy)]
+#[derive(Debug, PartialEq, Clone, Copy,Serialize)]
 pub struct Card {
     pub suit: u8,
     pub number: u8,

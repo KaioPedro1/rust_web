@@ -12,7 +12,7 @@ use actix_web_actors::ws::Message::Text;
 use std::time::{Duration, Instant};
 use uuid::Uuid;
 
-use super::lobby_messages::{Connect, WsMessage};
+use super::lobby_messages::{Connect, WsMessage, GameSocketInput};
 
 const HEARTBEAT_INTERVAL: Duration = Duration::from_secs(5);
 const CLIENT_TIMEOUT: Duration = Duration::from_secs(10);
@@ -105,7 +105,12 @@ impl StreamHandler<Result<ws::Message, ws::ProtocolError>> for WsConn {
                 ctx.stop();
             }
             Ok(ws::Message::Nop) => (),
-            Ok(Text(_)) => {}
+            Ok(Text(input)) => {
+                let t: GameSocketInput = serde_json::from_str(&input).unwrap();
+                if t.action=="StartGame"{
+                    self.lobby_addr.do_send(t);
+                }
+            }
             Err(_) => panic!("e"),
         }
     }
@@ -117,3 +122,6 @@ impl Handler<WsMessage> for WsConn {
         ctx.text(msg.0);
     }
 }
+
+
+

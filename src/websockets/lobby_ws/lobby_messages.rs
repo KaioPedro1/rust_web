@@ -1,10 +1,11 @@
-use actix::prelude::{Message, Recipient};
+use actix::{prelude::{Message, Recipient}};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
 use crate::model::{
     ActionLobbyType, ActionRoomType, MessageLobbyType, MessageRoomType, RoomTypes, UserTypes,
 };
+
 
 //WsConn responds to this to pipe it through to the actual client
 #[derive(Message)]
@@ -46,4 +47,13 @@ pub struct LobbyNotification {
     pub room: RoomTypes,
     pub user: Option<UserTypes>,
     pub sender_uuid: Uuid,
+}
+
+//startgame, play a card, ask for truco, respond truco,  
+#[derive(Deserialize,Message,Debug)]
+#[rtype(result = "()")]
+pub struct GameSocketInput {
+    pub action:String,
+    pub user: Uuid,
+    pub room: Uuid,
 }
