@@ -41,4 +41,3 @@ pub async fn ws_room_get(
     let ws = WsConn::new(user_uuid, lobby_room_uuid, srv.get_ref().clone());
     ws::start(ws, &req, stream).unwrap()
 }
-

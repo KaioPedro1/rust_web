@@ -1,7 +1,9 @@
 use std::{cell::RefCell, collections::VecDeque, rc::Rc};
 
-use super::{Player, TurnWinner, TeamWinnerValue, WinnerType, PlayedCard, UserAction, PlayerAnswerTruco, Truco};
-
+use super::{
+    PlayedCard, Player, PlayerAnswerTruco, TeamWinnerValue, Truco, TurnWinner, UserAction,
+    WinnerType,
+};
 
 pub struct TurnManager {
     turn: i32,
@@ -24,7 +26,7 @@ impl TurnManager {
         }
     }
     pub fn play(&mut self) -> TeamWinnerValue {
-        for n in 0..3 {
+        for n in 0..1 {
             self.play_one_turn();
             let turn_value = self.truco_state.borrow().truco_value;
 
@@ -262,4 +264,3 @@ impl Turn {
         }
     }
 }
-

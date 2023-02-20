@@ -4,23 +4,25 @@ use std::{
     rc::Rc,
 };
 
+use actix::Recipient;
 
-use actix::{ Recipient};
-use serde::Serialize;
 use uuid::Uuid;
 
-use crate::websockets::{lobby_messages::WsMessage};
+use crate::model::MessageRoomType::GameNotification as gn;
 
-use super::{Card, PlayerAnswerTruco, UserAction, Truco};
-
-
+use super::{
+    game_actor_messages::{GameNotification, UserData},
+    Card, PlayerAnswerTruco, Truco, UserAction,
+};
+use crate::game_logic::game_actor_messages::GameAction::PlayerTurn;
+use crate::websockets::lobby_messages::WsMessage;
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Player {
     pub id: Uuid,
     pub hand: Option<Vec<Card>>,
     pub team_id: i32,
-    pub ws_addr: Recipient<WsMessage>
+    pub ws_addr: Recipient<WsMessage>,
 }
 impl Player {
     pub fn new(id: Uuid, team: i32, addr: Recipient<WsMessage>) -> Player {
@@ -28,7 +30,7 @@ impl Player {
             id,
             hand: None,
             team_id: team,
-            ws_addr:addr
+            ws_addr: addr,
         }
     }
     pub fn answer_truco_action(&self, asker: &String) -> PlayerAnswerTruco {
@@ -72,17 +74,14 @@ impl Player {
     }
     pub fn ask_player_action(&self, truco_state: Rc<RefCell<Truco>>) -> UserAction {
         let state = truco_state.borrow();
-        println!(
-            "{:?} team:{:?},  your options are:",
-            self.id, self.team_id
-        );
+        println!("{:?} team:{:?},  your options are:", self.id, self.team_id);
         for (index, card) in self.hand.as_ref().unwrap().iter().enumerate() {
             println!("{:?}:{:?}", index, card);
         }
         let is_allowed = self.verify_player_allowed_to_truco(state);
 
-        let uinput = Player::get_user_input(is_allowed);
-
+        self.send_ws_msg_player_action(is_allowed);
+        let uinput = 1;
         match uinput {
             3 => UserAction::AskForTruco,
             0 => {
@@ -99,6 +98,28 @@ impl Player {
             }
             _ => self.ask_player_action(truco_state.clone()),
         }
+    }
+    fn send_ws_msg_player_action(&self, is_allowed: bool)  {
+        //let mut max_input = self.hand.as_ref().unwrap().len();
+        let udata = UserData {
+            id: self.id,
+            hand: self.hand.as_ref().unwrap().to_vec(),
+            team_id: self.team_id,
+            position: 1,
+            is_allowed_to_truco: is_allowed,
+        };
+        /*if is_allowed {
+            max_input +=1;
+        } */
+        let notification = GameNotification {
+            msg_type: gn,
+            action: PlayerTurn,
+            user_data: udata,
+            round_data: None,
+        };
+        //envia msg
+        let serialized_notification = serde_json::to_string(&notification).unwrap();
+        self.ws_addr.do_send(WsMessage(serialized_notification));
     }
     fn get_user_input(is_allowed: bool) -> i32 {
         let mut max_input = 2;
@@ -121,6 +142,7 @@ impl Player {
             Self::get_user_input(is_allowed)
         }
     }
+
     pub fn remove_card(&mut self, card: Card) {
         self.hand.as_mut().unwrap().retain(|&x| x != card)
     }

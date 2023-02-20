@@ -117,6 +117,7 @@ pub enum UserTypes {
 pub enum MessageRoomType {
     Notification,
     Redirect,
+    GameNotification,
 }
 #[derive(Debug, Serialize, Deserialize)]
 pub enum ActionRoomType {

@@ -4,9 +4,9 @@ use crate::{
     redis_utils::{self},
     routes::{
         lobby_get, lobby_post, room_delete, room_get, root_get, root_post, ws_lobby_get,
-         ws_room_get,
+        ws_room_get,
     },
-    websockets::{Lobby},
+    websockets::Lobby,
 };
 use actix::Actor;
 use actix_files as fs;
@@ -55,7 +55,7 @@ pub fn run(
                         web::scope("/{room_uuid}")
                             .route("", web::get().to(room_get))
                             .route("", web::delete().to(room_delete))
-                            .route("/ws", web::get().to(ws_room_get))
+                            .route("/ws", web::get().to(ws_room_get)),
                     ),
             )
     })

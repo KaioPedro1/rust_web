@@ -1,7 +1,5 @@
-pub mod lobby_messages;
-pub mod ws;
-use crate::game_logic::game_actor_messages::NewGame;
-use crate::game_logic::{Player, GameManager};
+use crate::game_logic::game_actor_messages::GameStart;
+use crate::game_logic::{GameManager, Player};
 use crate::model::ActionRoomType::Enter;
 use crate::model::MessageLobbyType::Initial;
 use crate::model::MessageRoomType::Notification;
@@ -9,6 +7,7 @@ use crate::redis_utils::RedisState;
 use crate::utils::LOBBY_UUID;
 use crate::{database, model};
 
+use actix::Addr;
 use actix::prelude::{Actor, Context, Handler, Recipient};
 use actix_web::web::Data;
 
@@ -16,7 +15,7 @@ use std::collections::{HashMap, HashSet, VecDeque};
 use std::sync::{Arc, Mutex};
 use uuid::Uuid;
 
-use self::lobby_messages::{Connect, Disconnect, LobbyNotification, RoomNotification, WsMessage, GameSocketInput};
+use super::{Connect, Disconnect, GameSocketInput, LobbyNotification, RoomNotification, WsMessage};
 
 type Socket = Recipient<WsMessage>;
 
@@ -24,6 +23,7 @@ pub struct Lobby {
     sessions: HashMap<Uuid, Socket>,     //self id to self
     rooms: HashMap<Uuid, HashSet<Uuid>>, //room id  to list of users id
     redis: Data<Mutex<RedisState>>,
+    games_initialized: HashMap<Uuid,Addr<GameManager>>,
 }
 
 impl Lobby {
@@ -32,6 +32,7 @@ impl Lobby {
             sessions: HashMap::new(),
             rooms: HashMap::new(),
             redis,
+            games_initialized: HashMap::new(),
         }
     }
     fn send_message(&self, message: &str, id_to: &Uuid) {
@@ -43,6 +44,12 @@ impl Lobby {
     }
     fn get_lobby_uuid(&self) -> Uuid {
         Uuid::parse_str(LOBBY_UUID).unwrap()
+    }
+    fn remove_room_and_game_initialized(&mut self, room_id:&Uuid){
+        if self.games_initialized.contains_key(room_id){
+            self.games_initialized.remove(room_id);
+        }
+        self.rooms.remove(room_id);
     }
 }
 impl Lobby {}
@@ -194,7 +201,8 @@ impl Handler<Disconnect> for Lobby {
                             .remove_room_publish_to_lobby(msg.room_id.to_string(), serialized)
                             .unwrap();
 
-                        self.rooms.remove(&msg.room_id);
+                        drop(redis_lock);
+                        self.remove_room_and_game_initialized(&msg.room_id);
                     }
                 }
             }
@@ -237,9 +245,7 @@ impl Handler<RoomNotification> for Lobby {
         match self.rooms.get(&msg.room) {
             Some(hset) => {
                 let room_notification_serialized = serde_json::to_string(&msg).unwrap();
-                hset
-                    .iter()
-                    .for_each(|client| {
+                hset.iter().for_each(|client| {
                     self.send_message(room_notification_serialized.as_str(), client)
                 });
             }
@@ -247,29 +253,48 @@ impl Handler<RoomNotification> for Lobby {
         }
     }
 }
-impl Handler<GameSocketInput> for Lobby{
+impl Handler<GameSocketInput> for Lobby {
     type Result = ();
     fn handle(&mut self, msg: GameSocketInput, _: &mut Self::Context) -> Self::Result {
         let r = self.rooms.get(&msg.room);
-        if let Some(players_in_room) = r {
-            if players_in_room.len() == 2 {
-                match self.redis.lock().unwrap().get_connection_by_id(msg.room, msg.user) {
-                    Ok(ms) => {  
-                        if ms.is_admin {
-                            //cria um novo actor para gerenciar o jogo
-                            let mut vecd:VecDeque<Player>= VecDeque::new();
-                            for (index,p) in players_in_room.iter().enumerate() {
-                                let addr  = self.sessions.get(p).unwrap();
-                                let player = Player::new(*p, (index%2).try_into().unwrap(), addr.clone());
-                                vecd.push_back(player);   
+
+        match msg.action{
+            super::GameSocketAction::StartGame => {
+                if let Some(players_in_room) = r {
+                if players_in_room.len() >= 2 {
+                    match self
+                        .redis
+                        .lock()
+                        .unwrap()
+                        .get_connection_by_id(msg.room, msg.user)
+                    {
+                        Ok(ms) => {
+                            //verifica se o jogo já foi iniciado
+                            if ms.is_admin && !self.games_initialized.contains_key(&msg.room) {
+                                //cria um novo actor para gerenciar o jogo
+                                let mut vecd: VecDeque<Player> = VecDeque::new();
+                                for (index, p) in players_in_room.iter().enumerate() {
+                                    let addr = self.sessions.get(p).unwrap();
+                                    let player =
+                                        Player::new(*p, (index % 2).try_into().unwrap(), addr.clone());
+                                    vecd.push_back(player);
+                                }
+                                let act = GameManager::new(vecd).start();
+                                act.do_send(GameStart {
+                                    teste: "HUE".to_string(),
+                                });
+                                self.games_initialized.insert( ms.room_id, act);
+                                println!("Game started for room {:?}", self.games_initialized);
                             }
-                            let act = GameManager::new(vecd).start();
-                            act.do_send(NewGame{teste:"HUE".to_string()});
+                            //usuario n é admin ou jogo ja´foi iniciado, tratar no futuro
                         }
-                    },
-                    Err(e) => println!("{:?}",e),
-                };
-            }
+                        Err(e) => println!("{:?}", e),
+                    };
+                }
+            }},
+            super::GameSocketAction::PlayerInput => {
+                self.games_initialized.get(&msg.room).unwrap().do_send(msg);
+            },
         }
-    }    
+    }
 }

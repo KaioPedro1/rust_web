@@ -1,10 +1,8 @@
 use std::collections::HashMap;
 
-use rand::{thread_rng, seq::SliceRandom};
+use rand::{seq::SliceRandom, thread_rng};
 
 use super::Card;
-
-
 
 #[derive(Default, Debug)]
 

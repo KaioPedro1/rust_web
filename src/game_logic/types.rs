@@ -1,8 +1,8 @@
 use serde::Serialize;
 
-use super::{ Player};
+use super::Player;
 
-#[derive(Eq, Hash, PartialEq, Debug, Clone)]
+#[derive(Eq, Hash, PartialEq, Debug, Clone, Serialize)]
 pub enum HashMapWinnersKey {
     TeamId(i32),
     Draw,
@@ -13,7 +13,7 @@ pub struct PlayedCard {
     pub player: Player,
     pub card: Card,
 }
-#[derive(Debug, PartialEq, Clone, Copy,Serialize)]
+#[derive(Debug, PartialEq, Clone, Copy, Serialize)]
 pub struct Card {
     pub suit: u8,
     pub number: u8,

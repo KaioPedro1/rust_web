@@ -1,89 +1,15 @@
 <!DOCTYPE html>
 <html lang="en">
-
-<head>
-  <meta charset="UTF-8">
-  <meta http-equiv="X-UA-Compatible" content="IE=edge">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Room</title>
-
-</head>
-
-<body>
-  <h1>Só se eu for adm</h1>
-  <button onclick="deleteCurrentPage()">Fechar sala</button>
-  <button onclick="startGame()"> Iniciar jogo</button>
-  REEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEE
-</body>
-<script> 
-function getCookie(name) {
-        var value = "; " + document.cookie;
-        var parts = value.split("; " + name + "=");
-        if (parts.length == 2) return parts.pop().split(";").shift();
-    }
-
-  function startGame(){
-    const user = getCookie("uuid");
-    const room = location.pathname.split('/')[2];
-    const gameSocketInput = {
-    action: "StartGame",
-    user: user,
-    room: room
-  };
-  console.log(gameSocketInput);
-    socket_lobby.send(JSON.stringify(gameSocketInput))
-  }
-  async function deleteCurrentPage() {
-    await fetch(window.location.href, {
-      method: 'DELETE'
-    }).then(res => res.status == 204 ? window.location.replace(`${window.location.origin}/lobby`) : console.log("Não foi possivel deletar a sala, resposta não do servidor foi " + res.status));
-  }
-  var socket_lobby = null
-
-  function connect_ws_lobby() {
-    disconnect()
-
-    const { location } = window
-
-    const proto = location.protocol.startsWith('https') ? 'wss' : 'ws'
-    const wsUri = `${proto}://${location.host}${location.pathname}/ws`
-
-    socket_lobby = new WebSocket(wsUri)
-
-    socket_lobby.onopen = () => {
-      console.log("Eu entrei")
-    }
-
-    socket_lobby.onmessage = (ev) => {
-      let msg_parsed = JSON.parse(ev.data)
-      switch (msg_parsed.msg_type) {
-        case 'Notification':
-          console.log(msg_parsed);
-          break;
-        case 'Redirect':
-          window.location.replace(`${window.location.origin}/${msg_parsed.redirect}`)
-          break;
-        default:
-          console.log(`Error:${[...msg_parsed]}`);
-      }
-    }
-
-    socket_lobby.onclose = () => {
-      socket_lobby = null
-    }
-  }
-
-  function disconnect() {
-    if (socket_lobby) {
-      socket_lobby.close()
-      socket_lobby = null
-    }
-  }
-  
-  connect_ws_lobby()
-  window.onbeforeunload = function () {
-    socket_lobby.close();
-  };
-</script>
-
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Vite + Svelte + TS</title>
+    <script type="module" crossorigin src="/static/js/room-706e8c8e.js"></script>
+    <link rel="stylesheet" href="/static/css/room-e96a5111.css">
+  </head>
+  <body data-theme="crimson">
+    <div id="app"></div>
+    
+  </body>
 </html>
