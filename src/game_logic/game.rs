@@ -1,5 +1,5 @@
 use std::collections::{HashMap, VecDeque};
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 use std::sync::mpsc::{Receiver};
 
 use super::game_actor_messages::{GameAction, GameNotification, RoundData, UserData};
@@ -85,7 +85,7 @@ impl Game {
         self.deal_cards();
         self.notify_players_round_start();
     }
-    pub fn play(&mut self, rc: Arc<Receiver<GameSocketInput>>) {
+    pub fn play(&mut self, rc: Arc<Mutex<Receiver<GameSocketInput>>>) {
         //initial setup
         self.round_start();
         //loop while no one win

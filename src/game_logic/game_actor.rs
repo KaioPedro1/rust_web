@@ -1,6 +1,6 @@
 use std::collections::{ VecDeque};
 use std::sync::mpsc::{self, Receiver, Sender};
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 use std::thread;
 
 use super::Player;
@@ -37,7 +37,7 @@ impl Handler<GameStart> for GameActor {
         self.msg_sender_ws = Some(tx);
         let players = self.players.clone();
         thread::spawn(move || {
-            Game::new(players).play(Arc::new(rx));
+            Game::new(players).play(Arc::new(Mutex::new(rx)));
         });
     }
 }
