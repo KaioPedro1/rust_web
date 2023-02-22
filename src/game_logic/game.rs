@@ -2,9 +2,11 @@ use std::collections::{HashMap, VecDeque};
 use std::sync::{Arc, Mutex};
 use std::sync::mpsc::{Receiver};
 
+use actix::Addr;
+
 use super::game_actor_messages::{GameAction, GameNotification, RoundData, UserData};
 use super::{ Deck, HashMapWinnersKey, Player, TeamWinnerValue,
-    TurnManager,
+    TurnManager, GameActor,
 };
 use crate::model::MessageRoomType;
 use crate::websockets::{GameSocketInput};
@@ -20,10 +22,10 @@ pub struct Game {
     pub deck: Deck,
     pub players: VecDeque<Player>,
     pub round_winners: HashMap<HashMapWinnersKey, i32>,
-
+    pub game_actor_addr: Addr<GameActor>
 }
 impl Game {
-    pub fn new(players: VecDeque<Player>) -> Game {
+    pub fn new(players: VecDeque<Player>,addr: Addr<GameActor>) -> Game {
         let mut deck = Deck::default();
         deck.deck_setup();
         Game {
@@ -31,6 +33,7 @@ impl Game {
             deck,
             players,
             round_winners: HashMap::new(),
+            game_actor_addr: addr
         }
     }
     fn deal_cards(&mut self) {
@@ -90,7 +93,7 @@ impl Game {
         self.round_start();
         //loop while no one win
         while self.evaluate_game_winner().is_none() {
-            let mut turn_m = TurnManager::new(self.players.clone(), Arc::clone(&rc));
+            let mut turn_m = TurnManager::new(self.players.clone(), Arc::clone(&rc), Arc::new(self.game_actor_addr.clone()));
             let round_winner = turn_m.play();
             self.insert_round_winner(Some(round_winner));
             self.next_round();

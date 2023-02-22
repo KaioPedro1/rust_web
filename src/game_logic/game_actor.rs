@@ -4,14 +4,15 @@ use std::sync::{Arc, Mutex};
 use std::thread;
 
 use super::Player;
+use super::game_actor_messages::{UserResponse, GameNotificationPlayedCard};
 use super::{
     game_actor_messages::GameStart
 };
 
 use crate::game_logic::Game;
 
-use crate::websockets::GameSocketInput;
-use actix::{Actor, Context, Handler};
+use crate::websockets::{GameSocketInput, WsMessage};
+use actix::{Actor, Context, Handler, AsyncContext};
 
 #[derive(Debug)]
 pub struct GameActor {
@@ -32,12 +33,13 @@ impl Actor for GameActor {
 
 impl Handler<GameStart> for GameActor {
     type Result = ();
-    fn handle(&mut self, _: GameStart, _: &mut Self::Context) -> Self::Result {
+    fn handle(&mut self, _: GameStart, ctx: &mut Self::Context) -> Self::Result {
         let (tx, rx): (Sender<GameSocketInput>, Receiver<GameSocketInput>) = mpsc::channel();
         self.msg_sender_ws = Some(tx);
         let players = self.players.clone();
+        let addr = ctx.address();
         thread::spawn(move || {
-            Game::new(players).play(Arc::new(Mutex::new(rx)));
+            Game::new(players, addr).play(Arc::new(Mutex::new(rx)));
         });
     }
 }
@@ -52,3 +54,21 @@ impl Handler<GameSocketInput> for GameActor {
     }
 }
 
+impl Handler<UserResponse> for GameActor{
+    type Result = ();
+    fn handle(&mut self, msg: UserResponse, _: &mut Self::Context) -> Self::Result {
+        let player = self.players.iter().find(|p| p.id == msg.user_id).unwrap();
+        player.ws_addr.do_send(WsMessage(msg.msg));
+    }
+}
+
+impl Handler<GameNotificationPlayedCard> for GameActor {
+    type Result =();
+
+    fn handle(&mut self, msg: GameNotificationPlayedCard, _: &mut Self::Context) -> Self::Result {
+        let serialized_message = serde_json::to_string(&msg).unwrap();
+        for player in &self.players {
+            player.ws_addr.do_send(WsMessage(serialized_message.clone()));
+        }
+    }
+}

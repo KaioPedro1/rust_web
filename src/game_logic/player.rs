@@ -139,7 +139,9 @@ impl Player {
             Self::get_user_input(is_allowed)
         }
     }*/
-
+    pub fn send_message(&self, msg: String) {
+        self.ws_addr.do_send(WsMessage(msg));
+    }
     pub fn remove_card(&mut self, card: Card) {
         self.hand.as_mut().unwrap().retain(|&x| x != card)
     }
