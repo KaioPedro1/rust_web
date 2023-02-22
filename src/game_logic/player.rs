@@ -58,7 +58,9 @@ impl Player {
             }
         }
     }
-    fn verify_player_allowed_to_truco(&self, state: Truco) -> bool {
+    fn verify_player_allowed_to_truco(&self, state: Arc<Mutex<Truco>>) -> bool {
+        let state = state.lock().unwrap();
+
         if !state.is_truco {
             println!("3: Truco");
             return true;
@@ -71,31 +73,28 @@ impl Player {
         }
         false
     }
-    pub fn verify_user_input(&self, input: i32) -> Result<UserAction, String> {
-        match input {
-            3 => Ok(UserAction::AskForTruco),
-            0 => {
-                let hand = self.hand.as_ref().unwrap();
-                Ok(UserAction::PlayCard(hand[input as usize]))
+    pub fn verify_user_input(&self, input: i32, state: Arc<Mutex<Truco>>) -> Result<UserAction, String> {
+        let limit = self.hand.as_ref().unwrap().len();
+        let is_allowed = self.verify_player_allowed_to_truco(state);
+        let hand = self.hand.as_ref().unwrap();
+        
+        if (input >= limit.try_into().unwrap() || input<0) && input != 3{
+            return Err("Invalid input".to_string());
+        }
+        else {
+            if input == 3 && !is_allowed {
+                return Err("Invalid input".to_string());
             }
-            1 => {
-                let hand = self.hand.as_ref().unwrap();
-                Ok(UserAction::PlayCard(hand[input as usize]))
+            else if input == 3 && is_allowed {
+                return Ok(UserAction::AskForTruco);
             }
-            2 => {
-                let hand = self.hand.as_ref().unwrap();
-                Ok(UserAction::PlayCard(hand[input as usize]))
+            else {
+                return Ok(UserAction::PlayCard(hand[input as usize]));
             }
-            _ => Err("Invalid input".to_string()),
         }
     }
     pub fn ask_player_action(&self, truco_state: Arc<Mutex<Truco>>) {
-        let state = truco_state.lock().unwrap();
-        /*println!("{:?} team:{:?},  your options are:", self.id, self.team_id);
-        for (index, card) in self.hand.as_ref().unwrap().iter().enumerate() {
-            println!("{:?}:{:?}", index, card);
-        }*/
-        let is_allowed = self.verify_player_allowed_to_truco(state.to_owned());
+        let is_allowed = self.verify_player_allowed_to_truco(truco_state);
 
         let udata = UserData {
             id: self.id,
@@ -104,9 +103,6 @@ impl Player {
             position: 0,
             is_allowed_to_truco: is_allowed,
         };
-        /*if is_allowed {
-            max_input +=1;
-        } */
         let notification = GameNotification {
             msg_type: gn,
             action: PlayerTurn,
@@ -144,5 +140,8 @@ impl Player {
     }
     pub fn remove_card(&mut self, card: Card) {
         self.hand.as_mut().unwrap().retain(|&x| x != card)
+    }
+    pub fn get_first_card_from_hand(&self) -> Card {
+        self.hand.as_ref().unwrap().get(0).unwrap().to_owned()
     }
 }

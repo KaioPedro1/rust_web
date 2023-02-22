@@ -8,11 +8,14 @@ use std::{
 
 use actix::Addr;
 
-use crate::{websockets::{GameSocketInput, WsMessage}, model::MessageRoomType};
+use crate::{
+    websockets::{GameSocketInput},
+};
 
 use super::{
-    PlayedCard, Player, PlayerAnswerTruco, TeamWinnerValue, Truco, TurnWinner, UserAction,
-    WinnerType, GameActor, game_actor_messages::{UserResponse, GameNotificationPlayedCard, GameAction},
+    game_actor_messages::{ GameNotificationPlayedCard, UserResponse},
+    GameActor, PlayedCard, Player, PlayerAnswerTruco, TeamWinnerValue, Truco, TurnWinner,
+    UserAction, WinnerType,
 };
 
 pub struct TurnManager {
@@ -21,13 +24,13 @@ pub struct TurnManager {
     turn_winners: Vec<TurnWinner>,
     truco_state: Arc<Mutex<Truco>>,
     msg_receiver: Arc<Mutex<Receiver<GameSocketInput>>>,
-    game_actor_addr: Arc<Addr<GameActor>>
+    game_actor_addr: Arc<Addr<GameActor>>,
 }
 impl TurnManager {
     pub fn new(
         players: VecDeque<Player>,
         rx: Arc<Mutex<Receiver<GameSocketInput>>>,
-        addr: Arc<Addr<GameActor>>
+        addr: Arc<Addr<GameActor>>,
     ) -> TurnManager {
         TurnManager {
             turn: 0,
@@ -40,11 +43,11 @@ impl TurnManager {
                 is_fold: false,
             })),
             msg_receiver: rx,
-            game_actor_addr: addr
+            game_actor_addr: addr,
         }
     }
     pub fn play(&mut self) -> TeamWinnerValue {
-        for n in 0..1 {
+        for n in 0..2 {
             self.play_one_turn();
             let truco_state = self.truco_state.lock().unwrap();
             let turn_value = truco_state.truco_value;
@@ -97,7 +100,7 @@ impl TurnManager {
                 }
             }
         }
-        //teste pq não tem round 2
+        //error
         TeamWinnerValue {
             team_id: 666,
             turn_value: 666,
@@ -108,7 +111,7 @@ impl TurnManager {
             self.players.clone(),
             self.truco_state.clone(),
             Arc::clone(&self.msg_receiver),
-            Arc::clone(&self.game_actor_addr)
+            Arc::clone(&self.game_actor_addr),
         );
         new_turn.play();
         match new_turn.winner {
@@ -166,10 +169,8 @@ pub struct Turn {
     pub players: VecDeque<Player>,
     pub truco: Arc<Mutex<Truco>>,
     pub winner: WinnerType,
-    pub player_turn: Option<Player>,
     pub msg_receiver: Arc<Mutex<Receiver<GameSocketInput>>>,
-    pub player_positon: Option<usize>,
-    pub addr_actor: Arc<Addr<GameActor>>
+    pub addr_actor: Arc<Addr<GameActor>>,
 }
 
 impl Turn {
@@ -177,89 +178,91 @@ impl Turn {
         players: VecDeque<Player>,
         truco_state: Arc<Mutex<Truco>>,
         msg_receiver: Arc<Mutex<Receiver<GameSocketInput>>>,
-        addr: Arc<Addr<GameActor>>
+        addr: Arc<Addr<GameActor>>,
     ) -> Turn {
         Turn {
             played_cards: vec![],
             players,
             truco: truco_state,
             winner: WinnerType::Draw,
-            player_turn: None,
             msg_receiver,
-            player_positon: None,
-            addr_actor: addr
+            addr_actor: addr,
         }
     }
     pub fn play(&mut self) {
         let players_clone = Arc::new(self.players.clone());
 
         for (position, player) in players_clone.iter().enumerate() {
-            self.player_turn = Some(player.to_owned());
-            self.player_positon = Some(position);
-            
-            self.player_turn
-                .as_ref()
-                .unwrap()
-                .ask_player_action(Arc::clone(&self.truco));
-            
-            let jh = self.handle_user_input();
+            player.ask_player_action(Arc::clone(&self.truco));
+
+            let jh = self.handle_user_input(player);
             let result = jh.join().unwrap();
             match result {
-                Ok(a) => match a {
+                Ok(action) => match action {
                     UserAction::PlayCard(card) => {
-                        let playedcard= PlayedCard {
-                            player: self.player_turn.as_ref().unwrap().to_owned(),
+                        let played_card = PlayedCard {
+                            player: player.clone(),
                             card,
                             position_in_table: position,
                         };
-                        self.played_cards.push(playedcard.clone());
-                        self.player_turn.as_ref().unwrap().send_message("Sucess".to_owned());
-                        self.addr_actor.do_send(GameNotificationPlayedCard::new(playedcard))
+                        self.insert_played_card(played_card.clone());
+                        self.notify_player_answer(player, played_card, "Sucess".to_string());
                     }
                     UserAction::AskForTruco => todo!(),
                 },
                 Err(e) => {
-                //case player disconnect or dont play anything
-                let played_card = PlayedCard {
-                        player: self.player_turn.as_ref().unwrap().to_owned(),
-                        card:self.player_turn.as_ref().unwrap().hand.as_ref().unwrap()[0].to_owned(),
+                    //case player disconnect or dont play anything
+                    let played_card = PlayedCard {
+                        player: player.clone(),
+                        card: player.get_first_card_from_hand(),
                         position_in_table: position,
                     };
-                self.player_turn.as_ref().unwrap().send_message(e);
-                self.played_cards.push(played_card.clone());
-                self.addr_actor.do_send(GameNotificationPlayedCard::new(played_card))
-                },
+                    self.insert_played_card(played_card.clone());
+                    self.notify_player_answer(player, played_card, e);
+                }
             }
         }
 
         self.evaluate_turn();
     }
-    fn handle_user_input(&mut self) -> JoinHandle<Result<UserAction, String>> {
+    fn handle_user_input(&self, player:&Player) -> JoinHandle<Result<UserAction, String>> {
         let msg_rec_clone = Arc::clone(&self.msg_receiver);
-        let playerturnclone = self.player_turn.as_ref().unwrap().clone();
+        let playerturnclone = player.clone();
         let addrclone = Arc::clone(&self.addr_actor);
-        let j = thread::spawn(move || {
+        let trucoclone = Arc::clone(&self.truco);
+
+        let handle = thread::spawn(move || {
             let msg_rec_clone = msg_rec_clone.lock().unwrap();
             let duration = Duration::from_secs(15);
             loop {
                 let msg = msg_rec_clone.recv_timeout(duration);
-                if msg.is_ok() {
-                    if msg.as_ref().unwrap().user == playerturnclone.id {
-                        return Ok(playerturnclone
-                            .verify_user_input(msg.unwrap().player_input.unwrap())
-                            .unwrap());
-                    } else {
-                        addrclone.do_send(UserResponse{
-                            user_id: msg.unwrap().user,
-                            msg: "It's not your turn".to_owned(),
-                        });
+                if let Err(e) = msg {
+                    return Err(e.to_string());
+                }
+                let msg = msg.unwrap();
+                if let None = msg.player_input {
+                    panic!("Error, user input is none");
+                }
+
+                let user_input = msg.player_input.unwrap();
+
+                if msg.user != playerturnclone.id {
+                    addrclone.do_send(UserResponse {
+                        user_id: msg.user,
+                        msg: "Its not your turn".to_owned(),
+                    });
+                    continue;
+                } 
+                match playerturnclone.verify_user_input(user_input, trucoclone.to_owned()) {
+                        Ok(act) => return Ok(act),
+                        Err(e) => addrclone.do_send(UserResponse {
+                            user_id: msg.user,
+                            msg: e,
+                        }),
                     }
-                } else {
-                    return Err("Error, you take to long to play".to_string());
-                };
             }
         });
-        return j;
+        return handle;
     }
 
     fn evaluate_turn(&mut self) {
@@ -339,5 +342,12 @@ impl Turn {
                 .update_truco_state(PlayerAnswerTruco::No, player_caller.clone());
             PlayerAnswerTruco::No
         }
+    }
+    fn insert_played_card(&mut self, playedcard:PlayedCard){
+        self.played_cards.push(playedcard);
+    }
+    fn notify_player_answer(&mut self, player: &Player, playedcard:PlayedCard, msg:String){
+        player.send_message(msg);
+        self.addr_actor.do_send(GameNotificationPlayedCard::new(playedcard))
     }
 }
