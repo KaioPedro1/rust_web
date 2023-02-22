@@ -1,5 +1,5 @@
 use crate::game_logic::game_actor_messages::GameStart;
-use crate::game_logic::{GameManager, Player};
+use crate::game_logic::{GameActor, Player};
 use crate::model::ActionRoomType::Enter;
 use crate::model::MessageLobbyType::Initial;
 use crate::model::MessageRoomType::Notification;
@@ -23,7 +23,7 @@ pub struct Lobby {
     sessions: HashMap<Uuid, Socket>,     //self id to self
     rooms: HashMap<Uuid, HashSet<Uuid>>, //room id  to list of users id
     redis: Data<Mutex<RedisState>>,
-    games_initialized: HashMap<Uuid,Addr<GameManager>>,
+    games_initialized: HashMap<Uuid,Addr<GameActor>>,
 }
 
 impl Lobby {
@@ -278,12 +278,12 @@ impl Handler<GameSocketInput> for Lobby {
                                     let player =
                                         Player::new(*p, (index % 2).try_into().unwrap(), addr.clone());
                                     vecd.push_back(player);
-                                }
-                                let act = GameManager::new(vecd).start();
+                                } 
+                                let act = GameActor::new(vecd).start();
+                                self.games_initialized.insert( ms.room_id, act.clone());
                                 act.do_send(GameStart {
                                     teste: "HUE".to_string(),
                                 });
-                                self.games_initialized.insert( ms.room_id, act);
                                 println!("Game started for room {:?}", self.games_initialized);
                             }
                             //usuario n é admin ou jogo ja´foi iniciado, tratar no futuro
@@ -293,7 +293,12 @@ impl Handler<GameSocketInput> for Lobby {
                 }
             }},
             super::GameSocketAction::PlayerInput => {
-                self.games_initialized.get(&msg.room).unwrap().do_send(msg);
+                match self.games_initialized.get(&msg.room){
+                    Some(game) => {
+                        game.do_send(msg);
+                    },
+                    None => println!("Game not initialized"),
+                }
             },
         }
     }

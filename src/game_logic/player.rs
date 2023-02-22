@@ -1,7 +1,6 @@
 use std::{
-    cell::{Ref, RefCell},
     io,
-    rc::Rc,
+    sync::{Arc, Mutex},
 };
 
 use actix::Recipient;
@@ -59,7 +58,7 @@ impl Player {
             }
         }
     }
-    fn verify_player_allowed_to_truco(&self, state: Ref<Truco>) -> bool {
+    fn verify_player_allowed_to_truco(&self, state: Truco) -> bool {
         if !state.is_truco {
             println!("3: Truco");
             return true;
@@ -72,40 +71,37 @@ impl Player {
         }
         false
     }
-    pub fn ask_player_action(&self, truco_state: Rc<RefCell<Truco>>) -> UserAction {
-        let state = truco_state.borrow();
-        println!("{:?} team:{:?},  your options are:", self.id, self.team_id);
-        for (index, card) in self.hand.as_ref().unwrap().iter().enumerate() {
-            println!("{:?}:{:?}", index, card);
-        }
-        let is_allowed = self.verify_player_allowed_to_truco(state);
-
-        self.send_ws_msg_player_action(is_allowed);
-        let uinput = 1;
-        match uinput {
-            3 => UserAction::AskForTruco,
+    pub fn verify_user_input(&self, input: i32) -> Result<UserAction, String> {
+        match input {
+            3 => Ok(UserAction::AskForTruco),
             0 => {
                 let hand = self.hand.as_ref().unwrap();
-                UserAction::PlayCard(hand[uinput as usize])
+                Ok(UserAction::PlayCard(hand[input as usize]))
             }
             1 => {
                 let hand = self.hand.as_ref().unwrap();
-                UserAction::PlayCard(hand[uinput as usize])
+                Ok(UserAction::PlayCard(hand[input as usize]))
             }
             2 => {
                 let hand = self.hand.as_ref().unwrap();
-                UserAction::PlayCard(hand[uinput as usize])
+                Ok(UserAction::PlayCard(hand[input as usize]))
             }
-            _ => self.ask_player_action(truco_state.clone()),
+            _ => Err("Invalid input".to_string()),
         }
     }
-    fn send_ws_msg_player_action(&self, is_allowed: bool)  {
-        //let mut max_input = self.hand.as_ref().unwrap().len();
+    pub fn ask_player_action(&self, truco_state: Arc<Mutex<Truco>>) {
+        let state = truco_state.lock().unwrap();
+        /*println!("{:?} team:{:?},  your options are:", self.id, self.team_id);
+        for (index, card) in self.hand.as_ref().unwrap().iter().enumerate() {
+            println!("{:?}:{:?}", index, card);
+        }*/
+        let is_allowed = self.verify_player_allowed_to_truco(state.to_owned());
+
         let udata = UserData {
             id: self.id,
             hand: self.hand.as_ref().unwrap().to_vec(),
             team_id: self.team_id,
-            position: 1,
+            position: 0,
             is_allowed_to_truco: is_allowed,
         };
         /*if is_allowed {
@@ -121,7 +117,8 @@ impl Player {
         let serialized_notification = serde_json::to_string(&notification).unwrap();
         self.ws_addr.do_send(WsMessage(serialized_notification));
     }
-    fn get_user_input(is_allowed: bool) -> i32 {
+  
+    /*fn get_user_input(is_allowed: bool) -> i32 {
         let mut max_input = 2;
         if is_allowed {
             max_input = 3;
@@ -141,7 +138,7 @@ impl Player {
             );
             Self::get_user_input(is_allowed)
         }
-    }
+    }*/
 
     pub fn remove_card(&mut self, card: Card) {
         self.hand.as_mut().unwrap().retain(|&x| x != card)

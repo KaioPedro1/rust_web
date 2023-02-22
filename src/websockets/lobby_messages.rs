@@ -55,7 +55,7 @@ pub struct GameSocketInput {
     pub action: GameSocketAction,
     pub user: Uuid,
     pub room: Uuid,
-    pub player_input: Option<String>,
+    pub player_input: Option<i32>,
 }
 #[derive(Deserialize, Debug)]
 pub enum GameSocketAction {
