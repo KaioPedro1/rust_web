@@ -6,7 +6,7 @@ use std::{
     time::Duration,
 };
 
-use actix::Addr;
+use actix::{Addr, MailboxError};
 
 use crate::{
     websockets::{GameSocketInput},
@@ -47,7 +47,7 @@ impl TurnManager {
         }
     }
     pub fn play(&mut self) -> TeamWinnerValue {
-        for n in 0..2 {
+        for n in 0..3 {
             self.play_one_turn();
             let truco_state = self.truco_state.lock().unwrap();
             let turn_value = truco_state.truco_value;
@@ -290,7 +290,7 @@ impl Turn {
                 self.winner = WinnerType::CardWin(highest_playcard)
             }
         } else {
-            let highest_manilha = manilhas.into_iter().min_by_key(|c| c.card.rank).unwrap();
+            let highest_manilha = manilhas.into_iter().min_by_key(|c| c.card.suit).unwrap();
 
             self.winner = WinnerType::CardWin(highest_manilha)
         }
@@ -348,6 +348,9 @@ impl Turn {
     }
     fn notify_player_answer(&mut self, player: &Player, playedcard:PlayedCard, msg:String){
         player.send_message(msg);
-        self.addr_actor.do_send(GameNotificationPlayedCard::new(playedcard))
+        match self.addr_actor.try_send(GameNotificationPlayedCard::new(playedcard)){
+            Ok(_) => (),
+            Err(e) => println!("Error sending message to actor: {}", e),
+        };
     }
 }

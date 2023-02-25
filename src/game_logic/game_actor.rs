@@ -1,18 +1,16 @@
-use std::collections::{ VecDeque};
+use std::collections::VecDeque;
 use std::sync::mpsc::{self, Receiver, Sender};
 use std::sync::{Arc, Mutex};
 use std::thread;
 
+use super::game_actor_messages::GameStart;
+use super::game_actor_messages::{GameNotification, GameNotificationPlayedCard, UserResponse};
 use super::Player;
-use super::game_actor_messages::{UserResponse, GameNotificationPlayedCard};
-use super::{
-    game_actor_messages::GameStart
-};
 
 use crate::game_logic::Game;
 
 use crate::websockets::{GameSocketInput, WsMessage};
-use actix::{Actor, Context, Handler, AsyncContext};
+use actix::{Actor, AsyncContext, Context, Handler};
 
 #[derive(Debug)]
 pub struct GameActor {
@@ -54,7 +52,7 @@ impl Handler<GameSocketInput> for GameActor {
     }
 }
 
-impl Handler<UserResponse> for GameActor{
+impl Handler<UserResponse> for GameActor {
     type Result = ();
     fn handle(&mut self, msg: UserResponse, _: &mut Self::Context) -> Self::Result {
         let player = self.players.iter().find(|p| p.id == msg.user_id).unwrap();
@@ -63,12 +61,27 @@ impl Handler<UserResponse> for GameActor{
 }
 
 impl Handler<GameNotificationPlayedCard> for GameActor {
-    type Result =();
+    type Result = ();
 
     fn handle(&mut self, msg: GameNotificationPlayedCard, _: &mut Self::Context) -> Self::Result {
         let serialized_message = serde_json::to_string(&msg).unwrap();
         for player in &self.players {
-            player.ws_addr.do_send(WsMessage(serialized_message.clone()));
+            player
+                .ws_addr
+                .do_send(WsMessage(serialized_message.clone()));
         }
+    }
+}
+impl Handler<GameNotification> for GameActor {
+    type Result = ();
+
+    fn handle(&mut self, msg: GameNotification, _: &mut Self::Context) -> Self::Result {
+        let serialized_message = serde_json::to_string(&msg).unwrap();
+        self.players
+            .iter()
+            .find(|x| x.id == msg.user_data.id)
+            .unwrap()
+            .ws_addr
+            .do_send(WsMessage(serialized_message));
     }
 }

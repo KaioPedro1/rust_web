@@ -62,7 +62,6 @@ impl Player {
         let state = state.lock().unwrap();
 
         if !state.is_truco {
-            println!("3: Truco");
             return true;
         } else if state.is_truco
             && state.truco_caller.as_ref().unwrap().team_id != self.team_id
@@ -77,7 +76,7 @@ impl Player {
         let limit = self.hand.as_ref().unwrap().len();
         let is_allowed = self.verify_player_allowed_to_truco(state);
         let hand = self.hand.as_ref().unwrap();
-        
+
         if (input >= limit.try_into().unwrap() || input<0) && input != 3{
             return Err("Invalid input".to_string());
         }

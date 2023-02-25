@@ -4,7 +4,7 @@ use uuid::Uuid;
 
 use crate::model::MessageRoomType;
 
-use super::{Card, PlayedCard};
+use super::{Card, PlayedCard, HashMapWinnersKey};
 
 #[derive(Message)]
 #[rtype(result = "()")]
@@ -18,7 +18,8 @@ pub struct UserResponse {
     pub msg: String,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, Message)]
+#[rtype(result = "()")]
 pub struct GameNotification {
     pub msg_type: MessageRoomType,
     pub action: GameAction,
@@ -64,4 +65,14 @@ impl GameNotificationPlayedCard {
             card:player_data.card,
         }
     }
+}
+
+#[derive(Message, Serialize)]
+#[rtype(result = "()")]
+pub struct GameNotificationTurnWinner {
+    pub msg_type: MessageRoomType,
+    pub action: GameAction,
+    pub team_id: HashMapWinnersKey,
+    pub turn_value: i32,
+    pub current_score: HashMap<HashMapWinnersKey, i32>,
 }

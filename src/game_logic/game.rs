@@ -28,6 +28,7 @@ impl Game {
     pub fn new(players: VecDeque<Player>,addr: Addr<GameActor>) -> Game {
         let mut deck = Deck::default();
         deck.deck_setup();
+      
         Game {
             round: 1,
             deck,
@@ -58,7 +59,6 @@ impl Game {
         self.deal_cards();
         self.set_new_starter();
         self.increse_round_counter();
-        self.notify_players_round_start()
     }
     fn insert_round_winner(&mut self, info: Option<TeamWinnerValue>) {
         match info {
@@ -86,13 +86,13 @@ impl Game {
     }
     fn round_start(&mut self){
         self.deal_cards();
-        self.notify_players_round_start();
     }
     pub fn play(&mut self, rc: Arc<Mutex<Receiver<GameSocketInput>>>) {
         //initial setup
         self.round_start();
         //loop while no one win
         while self.evaluate_game_winner().is_none() {
+            self.notify_players_round_start();
             let mut turn_m = TurnManager::new(self.players.clone(), Arc::clone(&rc), Arc::new(self.game_actor_addr.clone()));
             let round_winner = turn_m.play();
             self.insert_round_winner(Some(round_winner));
@@ -101,6 +101,7 @@ impl Game {
         //notify game winner
         self.notify_game_winner();
     }
+
     fn notify_players_round_start(&mut self) {
         self.players.iter().enumerate().for_each(|(i, p)| {
             let hand = p.hand.as_ref().unwrap();
@@ -119,8 +120,7 @@ impl Game {
                     round: self.round,
                 }),
             };
-            let serialized_notification = serde_json::to_string(&notification).unwrap();
-            p.ws_addr.do_send(WsMessage(serialized_notification));
+            self.game_actor_addr.do_send(notification);
         });
     }
     fn notify_game_winner(&mut self){
@@ -129,6 +129,9 @@ impl Game {
         self.players.iter().for_each(|p|{
             p.ws_addr.do_send(WsMessage(serialized_notification.clone()));
         });
+    }
+    fn notify_round_winner(&mut self){
+        
     }
 }
 
