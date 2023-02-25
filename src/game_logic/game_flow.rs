@@ -6,14 +6,12 @@ use std::{
     time::Duration,
 };
 
-use actix::{Addr, MailboxError};
+use actix::{Addr};
 
-use crate::{
-    websockets::{GameSocketInput},
-};
+use crate::websockets::GameSocketInput;
 
 use super::{
-    game_actor_messages::{ GameNotificationPlayedCard, UserResponse},
+    game_actor_messages::{GameNotificationPlayedCard, UserResponse},
     GameActor, PlayedCard, Player, PlayerAnswerTruco, TeamWinnerValue, Truco, TurnWinner,
     UserAction, WinnerType,
 };
@@ -225,7 +223,7 @@ impl Turn {
 
         self.evaluate_turn();
     }
-    fn handle_user_input(&self, player:&Player) -> JoinHandle<Result<UserAction, String>> {
+    fn handle_user_input(&self, player: &Player) -> JoinHandle<Result<UserAction, String>> {
         let msg_rec_clone = Arc::clone(&self.msg_receiver);
         let playerturnclone = player.clone();
         let addrclone = Arc::clone(&self.addr_actor);
@@ -252,14 +250,14 @@ impl Turn {
                         msg: "Its not your turn".to_owned(),
                     });
                     continue;
-                } 
+                }
                 match playerturnclone.verify_user_input(user_input, trucoclone.to_owned()) {
-                        Ok(act) => return Ok(act),
-                        Err(e) => addrclone.do_send(UserResponse {
-                            user_id: msg.user,
-                            msg: e,
-                        }),
-                    }
+                    Ok(act) => return Ok(act),
+                    Err(e) => addrclone.do_send(UserResponse {
+                        user_id: msg.user,
+                        msg: e,
+                    }),
+                }
             }
         });
         return handle;
@@ -343,12 +341,15 @@ impl Turn {
             PlayerAnswerTruco::No
         }
     }
-    fn insert_played_card(&mut self, playedcard:PlayedCard){
+    fn insert_played_card(&mut self, playedcard: PlayedCard) {
         self.played_cards.push(playedcard);
     }
-    fn notify_player_answer(&mut self, player: &Player, playedcard:PlayedCard, msg:String){
+    fn notify_player_answer(&mut self, player: &Player, playedcard: PlayedCard, msg: String) {
         player.send_message(msg);
-        match self.addr_actor.try_send(GameNotificationPlayedCard::new(playedcard)){
+        match self
+            .addr_actor
+            .try_send(GameNotificationPlayedCard::new(playedcard))
+        {
             Ok(_) => (),
             Err(e) => println!("Error sending message to actor: {}", e),
         };

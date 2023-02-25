@@ -72,22 +72,23 @@ impl Player {
         }
         false
     }
-    pub fn verify_user_input(&self, input: i32, state: Arc<Mutex<Truco>>) -> Result<UserAction, String> {
+    pub fn verify_user_input(
+        &self,
+        input: i32,
+        state: Arc<Mutex<Truco>>,
+    ) -> Result<UserAction, String> {
         let limit = self.hand.as_ref().unwrap().len();
         let is_allowed = self.verify_player_allowed_to_truco(state);
         let hand = self.hand.as_ref().unwrap();
 
-        if (input >= limit.try_into().unwrap() || input<0) && input != 3{
+        if (input >= limit.try_into().unwrap() || input < 0) && input != 3 {
             return Err("Invalid input".to_string());
-        }
-        else {
+        } else {
             if input == 3 && !is_allowed {
                 return Err("Invalid input".to_string());
-            }
-            else if input == 3 && is_allowed {
+            } else if input == 3 && is_allowed {
                 return Ok(UserAction::AskForTruco);
-            }
-            else {
+            } else {
                 return Ok(UserAction::PlayCard(hand[input as usize]));
             }
         }
@@ -112,7 +113,7 @@ impl Player {
         let serialized_notification = serde_json::to_string(&notification).unwrap();
         self.ws_addr.do_send(WsMessage(serialized_notification));
     }
-  
+
     /*fn get_user_input(is_allowed: bool) -> i32 {
         let mut max_input = 2;
         if is_allowed {

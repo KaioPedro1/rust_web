@@ -3,8 +3,8 @@ use std::sync::mpsc::{self, Receiver, Sender};
 use std::sync::{Arc, Mutex};
 use std::thread;
 
-use super::game_actor_messages::GameStart;
 use super::game_actor_messages::{GameNotification, GameNotificationPlayedCard, UserResponse};
+use super::game_actor_messages::{GameNotificationTurnWinner, GameStart};
 use super::Player;
 
 use crate::game_logic::Game;
@@ -83,5 +83,17 @@ impl Handler<GameNotification> for GameActor {
             .unwrap()
             .ws_addr
             .do_send(WsMessage(serialized_message));
+    }
+}
+impl Handler<GameNotificationTurnWinner> for GameActor {
+    type Result = ();
+
+    fn handle(&mut self, msg: GameNotificationTurnWinner, _: &mut Self::Context) -> Self::Result {
+        let serialized_message = serde_json::to_string(&msg).unwrap();
+        for player in &self.players {
+            player
+                .ws_addr
+                .do_send(WsMessage(serialized_message.clone()));
+        }
     }
 }

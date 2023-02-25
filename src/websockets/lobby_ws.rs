@@ -7,8 +7,8 @@ use crate::redis_utils::RedisState;
 use crate::utils::LOBBY_UUID;
 use crate::{database, model};
 
-use actix::Addr;
 use actix::prelude::{Actor, Context, Handler, Recipient};
+use actix::Addr;
 use actix_web::web::Data;
 
 use std::collections::{HashMap, HashSet, VecDeque};
@@ -23,7 +23,7 @@ pub struct Lobby {
     sessions: HashMap<Uuid, Socket>,     //self id to self
     rooms: HashMap<Uuid, HashSet<Uuid>>, //room id  to list of users id
     redis: Data<Mutex<RedisState>>,
-    games_initialized: HashMap<Uuid,Addr<GameActor>>,
+    games_initialized: HashMap<Uuid, Addr<GameActor>>,
 }
 
 impl Lobby {
@@ -45,8 +45,8 @@ impl Lobby {
     fn get_lobby_uuid(&self) -> Uuid {
         Uuid::parse_str(LOBBY_UUID).unwrap()
     }
-    fn remove_room_and_game_initialized(&mut self, room_id:&Uuid){
-        if self.games_initialized.contains_key(room_id){
+    fn remove_room_and_game_initialized(&mut self, room_id: &Uuid) {
+        if self.games_initialized.contains_key(room_id) {
             self.games_initialized.remove(room_id);
         }
         self.rooms.remove(room_id);
@@ -258,47 +258,49 @@ impl Handler<GameSocketInput> for Lobby {
     fn handle(&mut self, msg: GameSocketInput, _: &mut Self::Context) -> Self::Result {
         let r = self.rooms.get(&msg.room);
 
-        match msg.action{
+        match msg.action {
             super::GameSocketAction::StartGame => {
                 if let Some(players_in_room) = r {
-                if players_in_room.len() >= 2 {
-                    match self
-                        .redis
-                        .lock()
-                        .unwrap()
-                        .get_connection_by_id(msg.room, msg.user)
-                    {
-                        Ok(ms) => {
-                            //verifica se o jogo já foi iniciado
-                            if ms.is_admin && !self.games_initialized.contains_key(&msg.room) {
-                                //cria um novo actor para gerenciar o jogo
-                                let mut vecd: VecDeque<Player> = VecDeque::new();
-                                for (index, p) in players_in_room.iter().enumerate() {
-                                    let addr = self.sessions.get(p).unwrap();
-                                    let player =
-                                        Player::new(*p, (index % 2).try_into().unwrap(), addr.clone());
-                                    vecd.push_back(player);
-                                } 
-                                let act = GameActor::new(vecd).start();
-                                self.games_initialized.insert( ms.room_id, act.clone());
-                                act.do_send(GameStart {
-                                    teste: "HUE".to_string(),
-                                });
-                                println!("Game started for room {:?}", self.games_initialized);
+                    if players_in_room.len() >= 2 {
+                        match self
+                            .redis
+                            .lock()
+                            .unwrap()
+                            .get_connection_by_id(msg.room, msg.user)
+                        {
+                            Ok(ms) => {
+                                //verifica se o jogo já foi iniciado
+                                if ms.is_admin && !self.games_initialized.contains_key(&msg.room) {
+                                    //cria um novo actor para gerenciar o jogo
+                                    let mut vecd: VecDeque<Player> = VecDeque::new();
+                                    for (index, p) in players_in_room.iter().enumerate() {
+                                        let addr = self.sessions.get(p).unwrap();
+                                        let player = Player::new(
+                                            *p,
+                                            (index % 2).try_into().unwrap(),
+                                            addr.clone(),
+                                        );
+                                        vecd.push_back(player);
+                                    }
+                                    let act = GameActor::new(vecd).start();
+                                    self.games_initialized.insert(ms.room_id, act.clone());
+                                    act.do_send(GameStart {
+                                        teste: "HUE".to_string(),
+                                    });
+                                    println!("Game started for room {:?}", self.games_initialized);
+                                }
+                                //usuario n é admin ou jogo ja´foi iniciado, tratar no futuro
                             }
-                            //usuario n é admin ou jogo ja´foi iniciado, tratar no futuro
-                        }
-                        Err(e) => println!("{:?}", e),
-                    };
+                            Err(e) => println!("{:?}", e),
+                        };
+                    }
                 }
-            }},
-            super::GameSocketAction::PlayerInput => {
-                match self.games_initialized.get(&msg.room){
-                    Some(game) => {
-                        game.do_send(msg);
-                    },
-                    None => println!("Game not initialized"),
+            }
+            super::GameSocketAction::PlayerInput => match self.games_initialized.get(&msg.room) {
+                Some(game) => {
+                    game.do_send(msg);
                 }
+                None => println!("Game not initialized"),
             },
         }
     }

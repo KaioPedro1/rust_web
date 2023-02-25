@@ -2,11 +2,6 @@ use serde::Serialize;
 
 use super::Player;
 
-#[derive(Eq, Hash, PartialEq, Debug, Clone, Serialize)]
-pub enum HashMapWinnersKey {
-    TeamId(i32),
-    Draw,
-}
 #[derive(Debug, Clone, PartialEq)]
 pub struct PlayedCard {
     pub position_in_table: usize,
@@ -33,6 +28,7 @@ pub enum UserAction {
     PlayCard(Card),
     AskForTruco,
 }
+#[derive(Serialize)]
 pub struct TeamWinnerValue {
     pub team_id: i32,
     pub turn_value: i32,

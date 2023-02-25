@@ -107,7 +107,7 @@ impl StreamHandler<Result<ws::Message, ws::ProtocolError>> for WsConn {
             Ok(ws::Message::Nop) => (),
             Ok(Text(input)) => {
                 let input_serialized: GameSocketInput = serde_json::from_str(&input).unwrap();
-                self.lobby_addr.do_send(input_serialized);       
+                self.lobby_addr.do_send(input_serialized);
             }
             Err(_) => panic!("e"),
         }
