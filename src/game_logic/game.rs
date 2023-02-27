@@ -1,4 +1,4 @@
-use std::collections::{VecDeque};
+use std::collections::VecDeque;
 use std::sync::mpsc::Receiver;
 use std::sync::{Arc, Mutex};
 
@@ -84,15 +84,16 @@ impl Game {
     pub fn play(&mut self, rc: Arc<Mutex<Receiver<GameSocketInput>>>) {
         //initial setup
         self.round_start();
-        //loop while no one win
+        //loop while theres no winner
         while self.evaluate_game_winner().is_none() {
             self.notify_players_round_start();
-            let mut turn_m = TurnManager::new(
+            let round_winner = TurnManager::new(
                 self.players.clone(),
                 Arc::clone(&rc),
                 Arc::new(self.game_actor_addr.clone()),
-            );
-            let round_winner = turn_m.play();
+            )
+            .play()
+            .expect("Error while playing round");
             self.insert_round_winner(Some(round_winner));
             self.next_round();
         }
@@ -138,6 +139,7 @@ impl Game {
                 team_id: 3,
                 turn_value: 1,
             }),
+            round: self.round,
         };
         self.game_actor_addr.do_send(notification);
     }

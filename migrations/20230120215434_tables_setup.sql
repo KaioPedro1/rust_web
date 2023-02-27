@@ -7,8 +7,8 @@ CREATE TABLE Users(
 
 CREATE TABLE Rooms (
     id uuid PRIMARY KEY,
-    name VARCHAR(100) NOT NULL,
-    max_number_of_players INT NOT NULL,
+    name VARCHAR(50) NOT NULL,
+    room_capacity INT NOT NULL,
     created_at timestamptz NOT NULL
 );
 CREATE TABLE AvailableRooms (
@@ -28,7 +28,22 @@ CREATE TABLE Connections (
     PRIMARY KEY (user_id, room_id)
 );
 
-CREATE OR REPLACE FUNCTION update_room_players()
+CREATE OR REPLACE FUNCTION update_delete_room_players()
+RETURNS TRIGGER AS $$
+BEGIN
+    UPDATE AvailableRooms
+    SET number_of_players = (SELECT COUNT(*) FROM Connections WHERE room_id = OLD.room_id)
+    WHERE room_id = OLD.room_id;
+    RETURN NULL;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER update_delete_room_players
+AFTER DELETE ON Connections
+FOR EACH ROW
+EXECUTE FUNCTION update_delete_room_players();
+
+CREATE OR REPLACE FUNCTION update_insertion_room_players()
 RETURNS TRIGGER AS $$
 BEGIN
     UPDATE AvailableRooms
@@ -38,7 +53,11 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
-CREATE TRIGGER update_room_players
-AFTER INSERT OR DELETE ON Connections
+CREATE TRIGGER update_insertion_room_players
+AFTER INSERT ON Connections
 FOR EACH ROW
-EXECUTE FUNCTION update_room_players();
+EXECUTE FUNCTION update_insertion_room_players();
+
+
+
+

@@ -76,10 +76,11 @@ impl Player {
         &self,
         input: i32,
         state: Arc<Mutex<Truco>>,
-    ) -> Result<UserAction, String> {
-        let limit = self.hand.as_ref().unwrap().len();
-        let is_allowed = self.verify_player_allowed_to_truco(state);
+    ) -> Result<UserAction, String> { 
         let hand = self.hand.as_ref().unwrap();
+        let limit = hand.len();
+        let is_allowed = self.verify_player_allowed_to_truco(state);
+       
 
         if (input >= limit.try_into().unwrap() || input < 0) && input != 3 {
             return Err("Invalid input".to_string());
@@ -113,28 +114,6 @@ impl Player {
         let serialized_notification = serde_json::to_string(&notification).unwrap();
         self.ws_addr.do_send(WsMessage(serialized_notification));
     }
-
-    /*fn get_user_input(is_allowed: bool) -> i32 {
-        let mut max_input = 2;
-        if is_allowed {
-            max_input = 3;
-        }
-        let mut input = String::new();
-        io::stdin()
-            .read_line(&mut input)
-            .expect("Error reading input");
-
-        let input = input.trim().parse().unwrap_or(-1);
-        if input >= 0 && input <= max_input {
-            input
-        } else {
-            println!(
-                "Invalid input, please enter a number between 0 and {:?}.",
-                max_input
-            );
-            Self::get_user_input(is_allowed)
-        }
-    }*/
     pub fn send_message(&self, msg: String) {
         self.ws_addr.do_send(WsMessage(msg));
     }

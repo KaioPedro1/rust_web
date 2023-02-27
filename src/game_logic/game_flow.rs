@@ -1,4 +1,5 @@
 use std::{
+    cmp::Ordering,
     collections::VecDeque,
     rc::Rc,
     sync::{mpsc::Receiver, Arc, Mutex},
@@ -6,7 +7,7 @@ use std::{
     time::Duration,
 };
 
-use actix::{Addr};
+use actix::Addr;
 
 use crate::websockets::GameSocketInput;
 
@@ -15,7 +16,7 @@ use super::{
     GameActor, PlayedCard, Player, PlayerAnswerTruco, TeamWinnerValue, Truco, TurnWinner,
     UserAction, WinnerType,
 };
-
+const WAITING_TIME: u64 = 15;
 pub struct TurnManager {
     turn: i32,
     players: VecDeque<Player>,
@@ -44,70 +45,60 @@ impl TurnManager {
             game_actor_addr: addr,
         }
     }
-    pub fn play(&mut self) -> TeamWinnerValue {
+    pub fn play(&mut self) -> Result<TeamWinnerValue, &str> {
         for n in 0..3 {
             self.play_one_turn();
             let truco_state = self.truco_state.lock().unwrap();
             let turn_value = truco_state.truco_value;
 
             if truco_state.is_fold {
-                return TeamWinnerValue {
-                    team_id: self
-                        .truco_state
-                        .lock()
-                        .unwrap()
-                        .truco_caller
-                        .as_ref()
-                        .unwrap()
-                        .team_id,
+                return Ok(TeamWinnerValue {
+                    team_id: truco_state.get_truco_caller_team_id(),
                     turn_value,
-                };
+                });
             }
             if self.turn == 2 {
                 if self.turn_winners[n - 1].is_draw {
                     if !self.turn_winners[n].is_draw {
-                        return TeamWinnerValue {
+                        return Ok(TeamWinnerValue {
                             team_id: self.turn_winners[n].team_id.unwrap(),
                             turn_value,
-                        };
+                        });
                     }
                 } else {
                     if self.turn_winners[n].is_draw {
-                        return TeamWinnerValue {
+                        return Ok(TeamWinnerValue {
                             team_id: self.turn_winners[n - 1].team_id.unwrap(),
                             turn_value,
-                        };
+                        });
                     } else if self.turn_winners[n].team_id == self.turn_winners[n - 1].team_id {
-                        return TeamWinnerValue {
+                        return Ok(TeamWinnerValue {
                             team_id: self.turn_winners[n].team_id.unwrap(),
                             turn_value,
-                        };
+                        });
                     }
                 }
             } else if self.turn == 3 {
                 if self.turn_winners[n].is_draw {
-                    return TeamWinnerValue {
+                    return Ok(TeamWinnerValue {
                         team_id: self.turn_winners[n - 2].team_id.unwrap(),
                         turn_value,
-                    };
+                    });
                 } else {
-                    return TeamWinnerValue {
+                    return Ok(TeamWinnerValue {
                         team_id: self.turn_winners[n].team_id.unwrap(),
                         turn_value,
-                    };
+                    });
                 }
             }
         }
         //error
-        TeamWinnerValue {
-            team_id: 666,
-            turn_value: 666,
-        }
+        return Err("No winner found");
     }
     pub fn play_one_turn(&mut self) {
         let mut new_turn = Turn::new(
             self.players.clone(),
-            self.truco_state.clone(),
+            Arc::clone(&self.truco_state),
             Arc::clone(&self.msg_receiver),
             Arc::clone(&self.game_actor_addr),
         );
@@ -231,7 +222,7 @@ impl Turn {
 
         let handle = thread::spawn(move || {
             let msg_rec_clone = msg_rec_clone.lock().unwrap();
-            let duration = Duration::from_secs(15);
+            let duration = Duration::from_secs(WAITING_TIME);
             loop {
                 let msg = msg_rec_clone.recv_timeout(duration);
                 if let Err(e) = msg {
@@ -279,18 +270,24 @@ impl Turn {
             self.played_cards
                 .sort_unstable_by(|a, b| a.card.rank.cmp(&b.card.rank));
 
-            let highest_playcard = self.played_cards.get(0).unwrap().clone();
-            let second_highest_playcard = self.played_cards.get(1).unwrap();
-
-            if highest_playcard.card.rank == second_highest_playcard.card.rank {
-                self.winner = WinnerType::Draw;
-            } else {
-                self.winner = WinnerType::CardWin(highest_playcard)
-            }
+            let highest_playcard = self.played_cards.get(0);
+            let second_highest_playcard = self.played_cards.get(1);
+            match (highest_playcard, second_highest_playcard) {
+                (Some(high), Some(low)) => {
+                    self.winner = match high.card.rank.cmp(&low.card.rank) {
+                        Ordering::Equal => WinnerType::Draw,
+                        Ordering::Greater => WinnerType::CardWin(low.clone()),
+                        Ordering::Less => WinnerType::CardWin(high.clone()),
+                    };
+                }
+                (_, _) => {
+                    panic!("Error, its not possible to find a highest card or second highest card");
+                }
+            };
         } else {
             let highest_manilha = manilhas.into_iter().min_by_key(|c| c.card.suit).unwrap();
 
-            self.winner = WinnerType::CardWin(highest_manilha)
+            self.winner = WinnerType::CardWin(highest_manilha);
         }
     }
     fn handle_truco_call(

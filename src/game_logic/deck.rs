@@ -4,6 +4,9 @@ use rand::{seq::SliceRandom, thread_rng};
 
 use super::Card;
 
+const SUITS: [u8; 4] = [0, 1, 2, 3];
+const NUMBERS: [u8; 10] = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
+const CARDS_DRAW: usize = 3;
 #[derive(Default, Debug)]
 
 pub struct Deck {
@@ -24,8 +27,8 @@ impl Deck {
             (5, 9),
             (4, 10),
         ]);
-        for suit in 0..4 {
-            for number in 1..11 {
+        for suit in SUITS.into_iter() {
+            for number in NUMBERS.into_iter() {
                 self.deck.push(Card {
                     suit,
                     number,
@@ -59,8 +62,7 @@ impl Deck {
     }
     pub fn draw_cards(&mut self) -> Vec<Card> {
         let mut hand: Vec<Card> = vec![];
-        //always 3 cards
-        for _ in 0..3 {
+        for _ in 0..CARDS_DRAW {
             hand.push(self.deck.pop().unwrap())
         }
         self.shuffle();

@@ -45,7 +45,7 @@ pub struct AvailableRooms {
 pub struct Room {
     pub id: Uuid,
     pub name: RoomName,
-    pub max_number_players: MaxNumberOfPlayers,
+    pub room_capacity: RoomCapacity,
 }
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
 pub struct RoomName(pub String);
@@ -69,20 +69,21 @@ impl AsRef<str> for RoomName {
     }
 }
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
-pub struct MaxNumberOfPlayers(pub i32);
-impl MaxNumberOfPlayers {
-    pub fn parse(n: i32) -> Result<MaxNumberOfPlayers, String> {
-        let is_above_ceil = n > 24;
+pub struct RoomCapacity(pub i32);
+impl RoomCapacity {
+    pub fn parse(n: i32) -> Result<RoomCapacity, String> {
+        let is_above_ceil = n > 4;
         let is_beneath_floor = n < 2;
+        let is_not_even = n % 2 != 0;
 
-        if is_above_ceil || is_beneath_floor {
+        if is_above_ceil || is_beneath_floor || is_not_even{
             Err(format!("{} is not in the interval (2,24).", n))
         } else {
             Ok(Self(n))
         }
     }
 }
-impl AsRef<i32> for MaxNumberOfPlayers {
+impl AsRef<i32> for RoomCapacity {
     fn as_ref(&self) -> &i32 {
         &self.0
     }

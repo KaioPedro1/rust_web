@@ -29,4 +29,7 @@ impl Truco {
             self.truco_value += 3;
         }
     }
+    pub fn get_truco_caller_team_id(&self)->i32{
+        self.truco_caller.as_ref().unwrap().team_id
+    }
 }

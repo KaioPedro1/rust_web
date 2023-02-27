@@ -38,9 +38,10 @@ pub async fn room_get(
         None => return HttpResponse::InternalServerError().finish(),
     };
     let room_uuid = info.room_uuid;
-    if let Err(_) =
+    if let Err(e) =
         database::check_room_exist_in_available_rooms_table(room_uuid, connection.clone()).await
     {
+        println!("Error: {}", e.to_string());
         return HttpResponse::TemporaryRedirect()
             .append_header((LOCATION, "/lobby"))
             .finish();
@@ -80,9 +81,12 @@ pub async fn room_get(
                         .append_header(("Cache-control", "no-cache"))
                         .body(include_str!("../../static/room.html"))
                 }
-                Err(_) => HttpResponse::TemporaryRedirect()
+                Err(e) => {
+                    println!("Error: {}", e.to_string());
+                    HttpResponse::TemporaryRedirect()
                     .append_header((LOCATION, "/lobby"))
-                    .finish(),
+                    .finish()
+                },
             }
         }
     }

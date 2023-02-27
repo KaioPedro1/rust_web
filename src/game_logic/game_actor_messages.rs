@@ -75,4 +75,5 @@ pub struct GameNotificationTurnWinner {
     pub action: GameAction,
     pub turn_winner: TeamWinnerValue,
     pub current_score: [i32; 3],
+    pub round: u64,
 }

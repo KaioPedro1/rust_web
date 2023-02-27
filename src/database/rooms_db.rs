@@ -1,4 +1,4 @@
-use crate::model::{AvailableRooms, MaxNumberOfPlayers, Room, RoomName};
+use crate::model::{AvailableRooms, RoomCapacity, Room, RoomName};
 use actix_web::web;
 use sqlx::types::chrono::Utc;
 use sqlx::{PgPool, Pool, Postgres};
@@ -12,11 +12,11 @@ pub async fn insert_room_and_available_room_db(
 ) -> Result<(), sqlx::Error> {
     let mut tx = connection.get_ref().begin().await?;
     sqlx::query!(
-        r#"INSERT INTO rooms (id, name, max_number_of_players, created_at) 
+        r#"INSERT INTO rooms (id, name, room_capacity, created_at) 
         VALUES ($1, $2, $3, $4)"#,
         new_room.id,
         new_room.name.as_ref(),
-        new_room.max_number_players.as_ref(),
+        new_room.room_capacity.as_ref(),
         Utc::now()
     )
     .execute(&mut tx)
@@ -48,15 +48,16 @@ pub async fn check_room_exist_in_available_rooms_table(
     connection: web::Data<PgPool>,
 ) -> Result<(), sqlx::Error> {
     let _result = sqlx::query!(
-        r#"SELECT Rooms.id FROM Rooms, AvailableRooms 
+        r#"SELECT Rooms.id, AvailableRooms.number_of_players, Rooms.room_capacity, AvailableRooms.is_open FROM Rooms, AvailableRooms 
         WHERE AvailableRooms.room_id = $1 
-        AND AvailableRooms.number_of_players < Rooms.max_number_of_players 
+        AND AvailableRooms.number_of_players < Rooms.room_capacity 
         AND AvailableRooms.is_open = true"#,
         room_uuid
     )
     .fetch_one(connection.get_ref())
     .await?;
     Ok(())
+
 }
 
 pub async fn initial_rooms_state(pool: Pool<Postgres>) -> Result<Vec<Room>, sqlx::Error> {
@@ -75,7 +76,7 @@ pub async fn initial_rooms_state(pool: Pool<Postgres>) -> Result<Vec<Room>, sqlx
             Room {
                 id: x.id,
                 name: RoomName(x.name),
-                max_number_players: MaxNumberOfPlayers(x.max_number_of_players),
+                room_capacity: RoomCapacity(x.room_capacity),
             }
         })
         .collect();

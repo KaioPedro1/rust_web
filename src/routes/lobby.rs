@@ -10,7 +10,7 @@ use uuid::Uuid;
 use crate::{
     database,
     middleware::Authenticated,
-    model::{self, AvailableRooms, ConnectionMessage, MaxNumberOfPlayers, Room, RoomName},
+    model::{self, AvailableRooms, ConnectionMessage, RoomCapacity, Room, RoomName},
     redis_utils::RedisState,
     utils::{open_file_return_http_response_with_cache, FilesOptions},
     websockets::lobby_messages::LobbyNotification,
@@ -23,7 +23,7 @@ pub async fn lobby_get(req: HttpRequest, _: Authenticated) -> HttpResponse {
 #[derive(serde::Deserialize, Debug)]
 pub struct UserInput {
     pub name: String,
-    pub number_of_players: i32,
+    pub room_capacity: i32,
 }
 
 pub async fn lobby_post(
@@ -79,18 +79,18 @@ pub async fn lobby_post(
                 .append_header((LOCATION, url))
                 .finish()
         }
-        Err(_) => HttpResponse::Ok().finish(),
+        Err(e) => HttpResponse::InternalServerError().body(e.to_string()),
     }
 }
 
 fn validade_and_build_room(input: UserInput) -> Result<(Room, AvailableRooms), String> {
     let room_id = Uuid::new_v4();
     let room_name = RoomName::parse(input.name)?;
-    let max_number_players = MaxNumberOfPlayers::parse(input.number_of_players)?;
+    let room_capacity = RoomCapacity::parse(input.room_capacity)?;
     let room = Room {
         id: room_id,
         name: room_name,
-        max_number_players,
+        room_capacity,
     };
     let new_available_room = AvailableRooms {
         id: Uuid::new_v4(),

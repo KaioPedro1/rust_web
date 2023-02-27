@@ -72,7 +72,7 @@ pub async fn disconnect_user_and_set_new_admin_if_needed(
     )
     .fetch_one(&mut tx)
     .await?;
-
+    
     if user.is_admin == true {
         sqlx::query!(
             r#"UPDATE Connections SET is_admin=true WHERE user_id= $1 AND room_id = $2"#,
@@ -90,8 +90,9 @@ pub async fn disconnect_user_and_set_new_admin_if_needed(
     )
     .execute(&mut tx)
     .await?;
+    tx.commit().await?;
 
-    tx.commit().await
+    Ok(())
 }
 
 pub async fn connections_initial_state(
