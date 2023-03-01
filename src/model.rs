@@ -108,6 +108,16 @@ pub enum RoomTypes {
     Uuid(Uuid),
     Rooms(Vec<Room>),
 }
+impl RoomTypes {
+    pub fn get_uuid(&self) -> Uuid {
+        match self {
+            RoomTypes::Room(room) => room.id,
+            RoomTypes::Uuid(uuid) => *uuid,
+            RoomTypes::Rooms(_) => Uuid::nil(),
+        }
+    }
+}
+    
 #[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]
 pub enum UserTypes {
     Uuid(Uuid),

@@ -2,7 +2,7 @@ use crate::game_logic::game_actor_messages::GameStart;
 use crate::game_logic::{GameActor, Player};
 use crate::model::ActionRoomType::Update;
 use crate::model::MessageLobbyType::Initial;
-use crate::model::{MessageRoomType, UserTypes};
+use crate::model::{MessageRoomType, RoomTypes, UserTypes};
 use crate::redis_utils::RedisState;
 use crate::utils::LOBBY_UUID;
 use crate::{database, model};
@@ -70,48 +70,28 @@ impl Handler<Connect> for Lobby {
         self.sessions.insert(msg.self_id, msg.addr);
 
         if msg.lobby_id == self.get_lobby_uuid() {
-            let vec_rooms = self
-                .redis
-                .lock()
-                .unwrap()
-                .get_all_rooms_from_redis()
-                .unwrap();
-            let vec_connections = self
-                .redis
-                .lock()
-                .unwrap()
-                .get_all_connections_from_redis()
-                .unwrap();
+            let mut redis_lock = self.redis.lock().unwrap();
+            let vec_rooms = redis_lock.get_all_rooms_from_redis().unwrap();
+            let vec_connections = redis_lock.get_all_connections_from_redis().unwrap();
 
-            self.handle(
-                LobbyNotification {
-                    msg_type: Initial,
-                    action: None,
-                    room: crate::model::RoomTypes::Rooms(vec_rooms),
-                    user: Some(crate::model::UserTypes::Connections(vec_connections)),
-                    sender_uuid: msg.self_id,
-                },
-                ctx,
-            )
+            ctx.address().do_send(LobbyNotification {
+                msg_type: Initial,
+                action: None,
+                room: RoomTypes::Rooms(vec_rooms),
+                user: Some(UserTypes::Connections(vec_connections)),
+                sender_uuid: msg.self_id,
+            })
         } else {
-            //todo: send initial state of the room for the user
-            let serialized_con = self
-                .redis
-                .lock()
-                .unwrap()
-                .get_coonections_by_room_id(msg.lobby_id)
-                .unwrap();
-
-            self.handle(
-                RoomNotification {
-                    msg_type: MessageRoomType::RoomNotification,
-                    action: Update,
-                    user: UserRoomType::UserVec(serialized_con),
-                    room: msg.lobby_id,
-                    redirect: None,
-                },
-                ctx,
-            );
+            let mut redis_con = self.redis.lock().unwrap();
+            let serialized_con = redis_con.get_coonections_by_room_id(msg.lobby_id).unwrap();
+            let serialized_room = redis_con.get_room_by_id(msg.lobby_id).unwrap();
+            ctx.address().do_send(RoomNotification {
+                msg_type: MessageRoomType::RoomNotification,
+                action: Update,
+                user: UserRoomType::UserVec(serialized_con),
+                room: RoomTypes::Room(serialized_room),
+                redirect: None,
+            });
         }
     }
 }
@@ -136,7 +116,7 @@ impl Handler<Disconnect> for Lobby {
                         let self_addr = ctx.address();
                         tokio::spawn(async move {
                             let mut new_admin_needed: Option<UserTypes> = None;
-                            if let Ok(()) = database::disconnect_user_and_set_new_admin_if_needed(
+                            if let Ok(is_admin) = database::disconnect_user_and_set_new_admin_if_needed(
                                 msg.id,
                                 new_admin,
                                 msg.room_id,
@@ -144,7 +124,9 @@ impl Handler<Disconnect> for Lobby {
                             )
                             .await
                             {
-                                new_admin_needed = Some(model::UserTypes::Uuid(new_admin))
+                                if is_admin {
+                                    new_admin_needed = Some(UserTypes::Uuid(new_admin))
+                                };
                             };
 
                             let mut mutable_redis = redis_help.lock().unwrap();
@@ -156,22 +138,29 @@ impl Handler<Disconnect> for Lobby {
                                 sender_uuid: msg.id,
                             })
                             .unwrap();
+
                             mutable_redis.remove_connection_publish_user(
                                 msg.clone(),
                                 new_admin_needed,
                                 lobby_notification,
                             );
-                            let serialized_con =mutable_redis
-                                .get_coonections_by_room_id(msg.room_id)
-                                .unwrap();
-                            let room_notification = RoomNotification {
-                                msg_type: MessageRoomType::RoomNotification,
-                                action: Update,
-                                user: UserRoomType::UserVec(serialized_con),
-                                room: msg.room_id,
-                                redirect: None
+                            match mutable_redis.get_room_by_id(msg.room_id) {
+                                Ok(room) => {
+                                    let serialized_con = mutable_redis
+                                        .get_coonections_by_room_id(msg.room_id)
+                                        .unwrap();
+
+                                    let room_notification = RoomNotification {
+                                        msg_type: MessageRoomType::RoomNotification,
+                                        action: Update,
+                                        user: UserRoomType::UserVec(serialized_con),
+                                        room: RoomTypes::Room(room),
+                                        redirect: None,
+                                    };
+                                    self_addr.do_send(room_notification);
+                                }
+                                Err(e) => println!("error getting room: {}", e),
                             };
-                            self_addr.do_send(room_notification);
                         });
                     } else {
                         tokio::spawn(async move {
@@ -242,14 +231,16 @@ impl Handler<RoomNotification> for Lobby {
     type Result = ();
 
     fn handle(&mut self, msg: RoomNotification, _: &mut Context<Self>) -> Self::Result {
-        match self.rooms.get(&msg.room) {
+        let uuid = msg.room.get_uuid();
+
+        match self.rooms.get(&uuid) {
             Some(hset) => {
                 let room_notification_serialized = serde_json::to_string(&msg).unwrap();
                 hset.iter().for_each(|client| {
                     self.send_message(room_notification_serialized.as_str(), client);
                 });
             }
-            None => println!("Empty room"),
+            None => println!("Room not found"),
         }
     }
 }
@@ -262,7 +253,7 @@ impl Handler<GameSocketInput> for Lobby {
         match msg.action {
             super::GameSocketAction::StartGame => {
                 if let Some(players_in_room) = r {
-                    if players_in_room.len() >= 2 {
+                    if players_in_room.len() == 2 || players_in_room.len() == 4 {
                         match self
                             .redis
                             .lock()
@@ -290,7 +281,7 @@ impl Handler<GameSocketInput> for Lobby {
                                     });
                                     println!("Game started for room {:?}", self.games_initialized);
                                 }
-                                //usuario n é admin ou jogo ja´foi iniciado, tratar no futuro
+                    
                             }
                             Err(e) => println!("{:?}", e),
                         };

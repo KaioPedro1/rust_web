@@ -63,7 +63,7 @@ pub async fn disconnect_user_and_set_new_admin_if_needed(
     new_admin_uuid: Uuid,
     room_uuid: Uuid,
     connection: Arc<PgPool>,
-) -> Result<(), sqlx::Error> {
+) -> Result<bool, sqlx::Error> {
     let mut tx = connection.begin().await?;
     let user = sqlx::query!(
         r#"SELECT is_admin FROM Connections WHERE user_id= $1 AND room_id = $2"#,
@@ -92,7 +92,7 @@ pub async fn disconnect_user_and_set_new_admin_if_needed(
     .await?;
     tx.commit().await?;
 
-    Ok(())
+    Ok(user.is_admin)
 }
 
 pub async fn connections_initial_state(

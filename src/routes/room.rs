@@ -3,7 +3,7 @@ use std::sync::Mutex;
 use crate::{
     database,
     middleware::Authenticated,
-    model::{self, ConnectionMessage, MessageRoomType, ActionRoomType},
+    model::{self, ConnectionMessage, MessageRoomType, ActionRoomType, RoomTypes},
     redis_utils::RedisState,
     utils::{open_file_return_http_response_with_cache, FilesOptions},
     websockets::{
@@ -120,7 +120,7 @@ pub async fn room_delete(
                                 msg_type: MessageRoomType::Redirect,
                                 action: ActionRoomType::Delete,
                                 user: UserRoomType::User(conn_tuple.user_id),
-                                room: conn_tuple.room_id,
+                                room: RoomTypes::Uuid(conn_tuple.room_id),
                                 redirect: Some("lobby".to_string()),
                             })
                             .await;

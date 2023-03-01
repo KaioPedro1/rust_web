@@ -34,7 +34,7 @@ pub struct RoomNotification {
     pub msg_type: MessageRoomType,
     pub action: ActionRoomType,
     pub user: UserRoomType,
-    pub room: Uuid,
+    pub room: RoomTypes,
     pub redirect: Option<String>,
 }
 

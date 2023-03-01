@@ -46,6 +46,14 @@ impl RedisState {
             .collect::<Vec<ConnectionMessage>>();
         Ok(deserialize_vec)
     }
+    pub fn get_room_by_id(&mut self, room_id: Uuid) -> Result<Room, RedisError> {
+        let mut conn_locked = self.connection.try_lock().unwrap();
+        let field = room_id.to_string();
+        let value: String = conn_locked.hget("AvailableRooms", field)?;
+        let room: Room = serde_json::from_str(&value).unwrap();
+
+        Ok(room)
+    }
     pub fn insert_room_publish_to_lobby(
         &mut self,
         field: String,
@@ -157,6 +165,7 @@ impl RedisState {
         let parsed_data: ConnectionMessage = serde_json::from_str(&conn_data).unwrap();
         Ok(parsed_data)
     }
+
 }
 
 pub async fn set_initial_redis_state(
