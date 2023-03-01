@@ -1,21 +1,23 @@
 use crate::game_logic::game_actor_messages::GameStart;
 use crate::game_logic::{GameActor, Player};
-use crate::model::ActionRoomType::Enter;
+use crate::model::ActionRoomType::Update;
 use crate::model::MessageLobbyType::Initial;
-use crate::model::MessageRoomType::Notification;
+use crate::model::{MessageRoomType, UserTypes};
 use crate::redis_utils::RedisState;
 use crate::utils::LOBBY_UUID;
 use crate::{database, model};
-
 use actix::prelude::{Actor, Context, Handler, Recipient};
-use actix::Addr;
+use actix::{Addr, AsyncContext};
 use actix_web::web::Data;
 
 use std::collections::{HashMap, HashSet, VecDeque};
 use std::sync::{Arc, Mutex};
 use uuid::Uuid;
 
-use super::{Connect, Disconnect, GameSocketInput, LobbyNotification, RoomNotification, WsMessage};
+use super::{
+    Connect, Disconnect, GameSocketInput, LobbyNotification, RoomNotification, UserRoomType,
+    WsMessage,
+};
 
 type Socket = Recipient<WsMessage>;
 
@@ -37,7 +39,7 @@ impl Lobby {
     }
     fn send_message(&self, message: &str, id_to: &Uuid) {
         if let Some(socket_recipient) = self.sessions.get(id_to) {
-            let _ = socket_recipient.do_send(WsMessage(message.to_owned()));
+            socket_recipient.do_send(WsMessage(message.to_owned()));
         } else {
             println!("attempting to send message but couldn't find user id.");
         }
@@ -92,23 +94,31 @@ impl Handler<Connect> for Lobby {
                 ctx,
             )
         } else {
+            //todo: send initial state of the room for the user
+            let serialized_con = self
+                .redis
+                .lock()
+                .unwrap()
+                .get_coonections_by_room_id(msg.lobby_id)
+                .unwrap();
+
             self.handle(
                 RoomNotification {
-                    msg_type: Notification,
-                    action: Enter,
-                    user: msg.self_id,
+                    msg_type: MessageRoomType::RoomNotification,
+                    action: Update,
+                    user: UserRoomType::UserVec(serialized_con),
                     room: msg.lobby_id,
                     redirect: None,
                 },
                 ctx,
-            )
+            );
         }
     }
 }
 impl Handler<Disconnect> for Lobby {
     type Result = ();
 
-    fn handle(&mut self, msg: Disconnect, _: &mut Context<Self>) {
+    fn handle(&mut self, msg: Disconnect, ctx: &mut Context<Self>) {
         if msg.room_id == self.get_lobby_uuid() {
             if self.sessions.remove(&msg.id).is_some() {
                 if let Some(lobby) = self.rooms.get_mut(&msg.room_id) {
@@ -121,10 +131,12 @@ impl Handler<Disconnect> for Lobby {
                 if let Some(room) = self.rooms.get_mut(&msg.room_id) {
                     if room.len() > 1 {
                         room.remove(&msg.id);
-                        let new_admin = room.iter().next().unwrap().clone();
+                        let new_admin = *room.iter().next().unwrap();
                         let redis_help = Arc::clone(&self.redis);
+                        let self_addr = ctx.address();
                         tokio::spawn(async move {
-                            match database::disconnect_user_and_set_new_admin_if_needed(
+                            let mut new_admin_needed: Option<UserTypes> = None;
+                            if let Ok(()) = database::disconnect_user_and_set_new_admin_if_needed(
                                 msg.id,
                                 new_admin,
                                 msg.room_id,
@@ -132,46 +144,34 @@ impl Handler<Disconnect> for Lobby {
                             )
                             .await
                             {
-                                Ok(_) => {
-                                    let mut mutable_redis = redis_help.lock().unwrap();
-                                    let notification = serde_json::to_string(&LobbyNotification {
-                                        msg_type: crate::model::MessageLobbyType::UpdatePlayer,
-                                        action: Some(crate::model::ActionLobbyType::Leave),
-                                        room: model::RoomTypes::Uuid(msg.room_id),
-                                        user: Some(model::UserTypes::Uuid(new_admin)),
-                                        sender_uuid: msg.id,
-                                    })
-                                    .unwrap();
-                                    mutable_redis
-                                        .remove_connection(
-                                            msg.id.to_string() + "/" + &msg.room_id.to_string(),
-                                        )
-                                        .unwrap();
-                                    mutable_redis.update_admin(msg.room_id, new_admin).unwrap();
-                                    mutable_redis
-                                        .publish_connection_to_lobby(notification)
-                                        .unwrap();
-                                }
-                                Err(_) => {
-                                    let mut mutable_redis = redis_help.lock().unwrap();
-                                    let notification = serde_json::to_string(&LobbyNotification {
-                                        msg_type: crate::model::MessageLobbyType::UpdatePlayer,
-                                        action: Some(crate::model::ActionLobbyType::Leave),
-                                        room: model::RoomTypes::Uuid(msg.room_id),
-                                        user: None,
-                                        sender_uuid: msg.id,
-                                    })
-                                    .unwrap();
-                                    mutable_redis
-                                        .remove_connection(
-                                            msg.id.to_string() + "/" + &msg.room_id.to_string(),
-                                        )
-                                        .unwrap();
-                                    mutable_redis
-                                        .publish_connection_to_lobby(notification)
-                                        .unwrap();
-                                }
+                                new_admin_needed = Some(model::UserTypes::Uuid(new_admin))
                             };
+
+                            let mut mutable_redis = redis_help.lock().unwrap();
+                            let lobby_notification = serde_json::to_string(&LobbyNotification {
+                                msg_type: crate::model::MessageLobbyType::UpdatePlayer,
+                                action: Some(crate::model::ActionLobbyType::Leave),
+                                room: model::RoomTypes::Uuid(msg.room_id),
+                                user: new_admin_needed.clone(),
+                                sender_uuid: msg.id,
+                            })
+                            .unwrap();
+                            mutable_redis.remove_connection_publish_user(
+                                msg.clone(),
+                                new_admin_needed,
+                                lobby_notification,
+                            );
+                            let serialized_con =mutable_redis
+                                .get_coonections_by_room_id(msg.room_id)
+                                .unwrap();
+                            let room_notification = RoomNotification {
+                                msg_type: MessageRoomType::RoomNotification,
+                                action: Update,
+                                user: UserRoomType::UserVec(serialized_con),
+                                room: msg.room_id,
+                                redirect: None
+                            };
+                            self_addr.do_send(room_notification);
                         });
                     } else {
                         tokio::spawn(async move {
@@ -246,13 +246,14 @@ impl Handler<RoomNotification> for Lobby {
             Some(hset) => {
                 let room_notification_serialized = serde_json::to_string(&msg).unwrap();
                 hset.iter().for_each(|client| {
-                    self.send_message(room_notification_serialized.as_str(), client)
+                    self.send_message(room_notification_serialized.as_str(), client);
                 });
             }
             None => println!("Empty room"),
         }
     }
 }
+
 impl Handler<GameSocketInput> for Lobby {
     type Result = ();
     fn handle(&mut self, msg: GameSocketInput, _: &mut Self::Context) -> Self::Result {

@@ -34,7 +34,7 @@ impl Game {
     }
     fn deal_cards(&mut self) {
         for player in &mut self.players {
-            if let Some(_) = player.hand {
+            if player.hand.is_some() {
                 player.hand.as_mut().unwrap().clear();
             }
             player.hand = Some(self.deck.draw_cards());

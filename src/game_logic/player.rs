@@ -82,16 +82,12 @@ impl Player {
         let is_allowed = self.verify_player_allowed_to_truco(state);
        
 
-        if (input >= limit.try_into().unwrap() || input < 0) && input != 3 {
-            return Err("Invalid input".to_string());
+        if ((input >= limit.try_into().unwrap() || input < 0) && input != 3)|| (input == 3 && !is_allowed) {
+            Err("Invalid input".to_string())
+        } else if input == 3 && is_allowed {
+            return Ok(UserAction::AskForTruco);
         } else {
-            if input == 3 && !is_allowed {
-                return Err("Invalid input".to_string());
-            } else if input == 3 && is_allowed {
-                return Ok(UserAction::AskForTruco);
-            } else {
-                return Ok(UserAction::PlayCard(hand[input as usize]));
-            }
+            return Ok(UserAction::PlayCard(hand[input as usize]));
         }
     }
     pub fn ask_player_action(&self, truco_state: Arc<Mutex<Truco>>) {

@@ -108,7 +108,7 @@ pub enum RoomTypes {
     Uuid(Uuid),
     Rooms(Vec<Room>),
 }
-#[derive(Debug, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]
 pub enum UserTypes {
     Uuid(Uuid),
     Connections(Vec<ConnectionMessage>),
@@ -116,14 +116,13 @@ pub enum UserTypes {
 }
 #[derive(Debug, Serialize, Deserialize)]
 pub enum MessageRoomType {
-    Notification,
+    RoomNotification,
     Redirect,
     GameNotification,
 }
 #[derive(Debug, Serialize, Deserialize)]
 pub enum ActionRoomType {
-    Enter,
-    Leave,
+    Update,
     Delete,
 }
 

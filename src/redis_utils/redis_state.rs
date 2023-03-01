@@ -4,7 +4,7 @@ use uuid::Uuid;
 
 use crate::{
     database,
-    model::{ConnectionMessage, Room},
+    model::{ConnectionMessage, Room, UserTypes}, websockets::Disconnect,
 };
 use redis::{Commands, Connection, RedisError};
 use sqlx::{Pool, Postgres};
@@ -53,8 +53,8 @@ impl RedisState {
         message: String,
     ) -> Result<(), RedisError> {
         let mut conn_locked = self.connection.try_lock().unwrap();
-        let _: () = conn_locked.hset("AvailableRooms", field, value)?;
-        let _: () = conn_locked.publish("lobby", message)?;
+        conn_locked.hset("AvailableRooms", field, value)?;
+        conn_locked.publish("lobby", message)?;
 
         Ok(())
     }
@@ -64,11 +64,30 @@ impl RedisState {
         message: String,
     ) -> Result<(), RedisError> {
         let mut conn_locked = self.connection.try_lock().unwrap();
-        let _: () = conn_locked.hdel("AvailableRooms", field)?;
-        let _: () = conn_locked.publish("lobby", message)?;
+        conn_locked.hdel("AvailableRooms", field)?;
+        conn_locked.publish("lobby", message)?;
 
         Ok(())
     }
+    pub fn get_coonections_by_room_id(
+        &mut self,
+        room_id: Uuid,
+    ) -> Result<Vec<ConnectionMessage>, RedisError> {
+        let mut conn_locked = self.connection.try_lock().unwrap();
+        let pattern = format!("*/{}", room_id);
+
+        let iter: redis::Iter<String> = conn_locked.hscan_match("Connections", pattern)?;
+        let vec: Vec<ConnectionMessage> = iter
+            .filter(|x| x.starts_with('{'))
+            .map(|x| {
+                let str = x;
+                serde_json::from_str(&str).unwrap()
+            })
+            .collect();
+
+        Ok(vec)
+    }
+
     pub fn insert_connection(
         &mut self,
         new_connection: ConnectionMessage,
@@ -77,19 +96,19 @@ impl RedisState {
 
         let field = new_connection.user_id.to_string() + "/" + &new_connection.room_id.to_string();
         let value = serde_json::to_string(&new_connection).unwrap();
-        let _: () = conn_locked.hset("Connections", field, value)?;
+        conn_locked.hset("Connections", field, value)?;
 
         Ok(())
     }
     pub fn remove_connection(&mut self, field: String) -> Result<(), RedisError> {
         let mut conn_locked = self.connection.try_lock().unwrap();
-        let _: () = conn_locked.hdel("Connections", field)?;
+        conn_locked.hdel("Connections", field)?;
         Ok(())
     }
     pub fn publish_connection_to_lobby(&mut self, message: String) -> Result<(), RedisError> {
         let mut conn_locked = self.connection.try_lock().unwrap();
 
-        let _: () = conn_locked.publish("lobby", message)?;
+        conn_locked.publish("lobby", message)?;
         Ok(())
     }
     pub fn update_admin(&mut self, room_id: Uuid, new_admin_id: Uuid) -> Result<(), RedisError> {
@@ -102,7 +121,7 @@ impl RedisState {
             if deser_conn.room_id == room_id && deser_conn.user_id == new_admin_id {
                 deser_conn.is_admin = true;
                 let msg = serde_json::to_string(&deser_conn).unwrap();
-                let _: () = conn_locked.hset(
+                conn_locked.hset(
                     "Connections",
                     deser_conn.user_id.to_string() + "/" + &deser_conn.room_id.to_string(),
                     msg,
@@ -111,7 +130,22 @@ impl RedisState {
         }
         Ok(())
     }
-
+    pub fn remove_connection_publish_user(&mut self,data:Disconnect, new_admin:Option<UserTypes>, parsed_msg:String){
+        let r1= self.remove_connection(data.id.to_string() + "/" + &data.room_id.to_string());
+        let r3 = self.publish_connection_to_lobby(parsed_msg);
+        if r1.is_err() || r3.is_err(){
+            println!("Error on remove_connection_update_admin_publish_user");
+        };
+        if let Some(update_admin) = new_admin{
+            match update_admin{
+                UserTypes::Uuid(uuid) =>{
+                    if let Err(e)= self.update_admin(data.room_id, uuid){
+                    println!("Error on update_admin: {}", e);
+                }},
+                _=> println!("Error on update_admin: new_admin is not Uuid")
+            }
+       }
+    }
     pub fn get_connection_by_id(
         &mut self,
         room_id: Uuid,
@@ -145,3 +179,4 @@ pub async fn set_initial_redis_state(
     }
     Ok(())
 }
+

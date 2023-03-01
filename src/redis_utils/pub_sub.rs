@@ -15,32 +15,26 @@ pub fn create_channels_and_subscribe(
         let mut pubsub = pub_sub_conn.as_pubsub();
         pubsub.subscribe("lobby").unwrap();
         loop {
-            match pubsub.get_message() {
-                Ok(msg) => {
-                    let payload: String = msg.get_payload().unwrap();
-                    let _ = tx.send(payload);
-                }
-                _ => {}
+            if let Ok(msg) = pubsub.get_message() {
+                let payload: String = msg.get_payload().unwrap();
+                let _ = tx.send(payload);
             }
         }
     });
     std::thread::spawn(move || loop {
-        match rx.recv() {
-            Ok(payload) => {
-                let message_serialized: LobbyNotification = serde_json::from_str(&payload).unwrap();
-                match message_serialized.msg_type {
-                    crate::model::MessageLobbyType::UpdateRoom => {
-                        addr_actor_lobby.do_send(message_serialized)
-                    }
-                    crate::model::MessageLobbyType::Initial => {
-                        println!("Error, thats not suposse to be here")
-                    }
-                    crate::model::MessageLobbyType::UpdatePlayer => {
-                        addr_actor_lobby.do_send(message_serialized)
-                    }
+        if let Ok(payload) = rx.recv() {
+            let message_serialized: LobbyNotification = serde_json::from_str(&payload).unwrap();
+            match message_serialized.msg_type {
+                crate::model::MessageLobbyType::UpdateRoom => {
+                    addr_actor_lobby.do_send(message_serialized)
+                }
+                crate::model::MessageLobbyType::Initial => {
+                    println!("Error, thats not suposse to be here")
+                }
+                crate::model::MessageLobbyType::UpdatePlayer => {
+                    addr_actor_lobby.do_send(message_serialized)
                 }
             }
-            _ => {}
         }
     });
 }

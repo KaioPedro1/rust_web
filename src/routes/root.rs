@@ -57,7 +57,7 @@ pub async fn root_post(
 
             let url_to_redirect = "/lobby";
 
-            let jwt_cookie = Cookie::build("jwt", token.clone())
+            let jwt_cookie = Cookie::build("jwt", token)
                 .path(url_to_redirect)
                 .max_age(dr::hours(60))
                 .finish();
@@ -79,6 +79,6 @@ pub async fn root_post(
                 .cookie(name_cookie)
                 .finish()
         }
-        Err(_) => return HttpResponse::BadRequest().finish(),
+        Err(_) => HttpResponse::BadRequest().finish(),
     }
 }

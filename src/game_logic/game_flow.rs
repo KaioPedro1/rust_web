@@ -1,7 +1,6 @@
 use std::{
     cmp::Ordering,
     collections::VecDeque,
-    rc::Rc,
     sync::{mpsc::Receiver, Arc, Mutex},
     thread::{self, JoinHandle},
     time::Duration,
@@ -13,7 +12,7 @@ use crate::websockets::GameSocketInput;
 
 use super::{
     game_actor_messages::{GameNotificationPlayedCard, UserResponse},
-    GameActor, PlayedCard, Player, PlayerAnswerTruco, TeamWinnerValue, Truco, TurnWinner,
+    GameActor, PlayedCard, Player, TeamWinnerValue, Truco, TurnWinner,
     UserAction, WinnerType,
 };
 const WAITING_TIME: u64 = 15;
@@ -65,18 +64,16 @@ impl TurnManager {
                             turn_value,
                         });
                     }
-                } else {
-                    if self.turn_winners[n].is_draw {
-                        return Ok(TeamWinnerValue {
-                            team_id: self.turn_winners[n - 1].team_id.unwrap(),
-                            turn_value,
-                        });
-                    } else if self.turn_winners[n].team_id == self.turn_winners[n - 1].team_id {
-                        return Ok(TeamWinnerValue {
-                            team_id: self.turn_winners[n].team_id.unwrap(),
-                            turn_value,
-                        });
-                    }
+                } else if self.turn_winners[n].is_draw {
+                    return Ok(TeamWinnerValue {
+                        team_id: self.turn_winners[n - 1].team_id.unwrap(),
+                        turn_value,
+                    });
+                } else if self.turn_winners[n].team_id == self.turn_winners[n - 1].team_id {
+                    return Ok(TeamWinnerValue {
+                        team_id: self.turn_winners[n].team_id.unwrap(),
+                        turn_value,
+                    });
                 }
             } else if self.turn == 3 {
                 if self.turn_winners[n].is_draw {
@@ -93,7 +90,7 @@ impl TurnManager {
             }
         }
         //error
-        return Err("No winner found");
+        Err("No winner found")
     }
     pub fn play_one_turn(&mut self) {
         let mut new_turn = Turn::new(
@@ -220,7 +217,8 @@ impl Turn {
         let addrclone = Arc::clone(&self.addr_actor);
         let trucoclone = Arc::clone(&self.truco);
 
-        let handle = thread::spawn(move || {
+        
+        thread::spawn(move || {
             let msg_rec_clone = msg_rec_clone.lock().unwrap();
             let duration = Duration::from_secs(WAITING_TIME);
             loop {
@@ -229,7 +227,7 @@ impl Turn {
                     return Err(e.to_string());
                 }
                 let msg = msg.unwrap();
-                if let None = msg.player_input {
+                if msg.player_input.is_none() {
                     panic!("Error, user input is none");
                 }
 
@@ -250,8 +248,7 @@ impl Turn {
                     }),
                 }
             }
-        });
-        return handle;
+        })
     }
 
     fn evaluate_turn(&mut self) {
@@ -290,7 +287,7 @@ impl Turn {
             self.winner = WinnerType::CardWin(highest_manilha);
         }
     }
-    fn handle_truco_call(
+    /*fn handle_truco_call(
         &mut self,
         player_caller: &Player,
         players_rc: Rc<VecDeque<Player>>,
@@ -337,7 +334,7 @@ impl Turn {
                 .update_truco_state(PlayerAnswerTruco::No, player_caller.clone());
             PlayerAnswerTruco::No
         }
-    }
+    }*/
     fn insert_played_card(&mut self, playedcard: PlayedCard) {
         self.played_cards.push(playedcard);
     }

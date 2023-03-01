@@ -51,16 +51,13 @@ where
 
     fn call(&self, req: ServiceRequest) -> Self::Future {
         let jwt_config = req.app_data::<Data<Jwt>>().unwrap();
-        req.cookie("jwt").and_then(|cookie| {
-            Some({
+        req.cookie("jwt").map(|cookie| {
                 decode::<Claims>(
-                    &cookie.value(),
+                    cookie.value(),
                     &DecodingKey::from_secret(jwt_config.secret_key.as_ref()),
                     &Validation::new(Algorithm::HS256),
-                )
-                .and_then(|token| Ok(req.extensions_mut().insert(token.claims)))
-            })
-        });
+                ).map(|token| req.extensions_mut().insert(token.claims))
+            });
 
         let fut = self.service.call(req);
         Box::pin(async move {

@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
 use crate::model::{
-    ActionLobbyType, ActionRoomType, MessageLobbyType, MessageRoomType, RoomTypes, UserTypes,
+    ActionLobbyType, ActionRoomType, MessageLobbyType, MessageRoomType, RoomTypes, UserTypes, ConnectionMessage,
 };
 
 //WsConn responds to this to pipe it through to the actual client
@@ -21,7 +21,7 @@ pub struct Connect {
 }
 
 //WsConn sends this to a lobby to say "take me out please"
-#[derive(Message)]
+#[derive(Message, Clone)]
 #[rtype(result = "()")]
 pub struct Disconnect {
     pub room_id: Uuid,
@@ -33,7 +33,7 @@ pub struct Disconnect {
 pub struct RoomNotification {
     pub msg_type: MessageRoomType,
     pub action: ActionRoomType,
-    pub user: Uuid,
+    pub user: UserRoomType,
     pub room: Uuid,
     pub redirect: Option<String>,
 }
@@ -61,4 +61,9 @@ pub struct GameSocketInput {
 pub enum GameSocketAction {
     StartGame,
     PlayerInput,
+}
+#[derive(Serialize,Deserialize, Debug)]
+pub enum UserRoomType{
+    User(Uuid),
+    UserVec(Vec<ConnectionMessage>),
 }

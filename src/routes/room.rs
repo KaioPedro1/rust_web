@@ -3,12 +3,12 @@ use std::sync::Mutex;
 use crate::{
     database,
     middleware::Authenticated,
-    model::{self, ConnectionMessage},
+    model::{self, ConnectionMessage, MessageRoomType, ActionRoomType},
     redis_utils::RedisState,
     utils::{open_file_return_http_response_with_cache, FilesOptions},
     websockets::{
         lobby_messages::{LobbyNotification, RoomNotification},
-        Lobby,
+        Lobby, UserRoomType,
     },
 };
 use actix::Addr;
@@ -41,7 +41,7 @@ pub async fn room_get(
     if let Err(e) =
         database::check_room_exist_in_available_rooms_table(room_uuid, connection.clone()).await
     {
-        println!("Error: {}", e.to_string());
+        println!("Error: {}", e);
         return HttpResponse::TemporaryRedirect()
             .append_header((LOCATION, "/lobby"))
             .finish();
@@ -82,7 +82,7 @@ pub async fn room_get(
                         .body(include_str!("../../static/room.html"))
                 }
                 Err(e) => {
-                    println!("Error: {}", e.to_string());
+                    println!("Error: {}", e);
                     HttpResponse::TemporaryRedirect()
                     .append_header((LOCATION, "/lobby"))
                     .finish()
@@ -107,7 +107,7 @@ pub async fn room_delete(
         .await
     {
         Ok(conn_tuple) => {
-            if conn_tuple.is_admin == true {
+            if conn_tuple.is_admin {
                 let conn_pull = redis.lock().unwrap().pg_pool.clone();
                 match database::delete_room_connections_close_room(conn_tuple.room_id, conn_pull)
                     .await
@@ -117,9 +117,9 @@ pub async fn room_delete(
                          */
                         let _ = lobby_srv
                             .send(RoomNotification {
-                                msg_type: crate::model::MessageRoomType::Redirect,
-                                action: crate::model::ActionRoomType::Delete,
-                                user: conn_tuple.user_id,
+                                msg_type: MessageRoomType::Redirect,
+                                action: ActionRoomType::Delete,
+                                user: UserRoomType::User(conn_tuple.user_id),
                                 room: conn_tuple.room_id,
                                 redirect: Some("lobby".to_string()),
                             })
