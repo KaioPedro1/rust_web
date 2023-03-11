@@ -74,6 +74,7 @@ pub async fn lobby_post(
                 )
                 .unwrap();
             redis_unlock.insert_connection(user).unwrap();
+            drop(redis_unlock);
             let url = format!("lobby/{}", room.id);
             HttpResponse::Found()
                 .append_header((LOCATION, url))

@@ -7,15 +7,15 @@ use std::{
 };
 
 use actix::Addr;
-
+use crate::model::MessageRoomType::GameNotification as gn;
 use crate::websockets::GameSocketInput;
-
+use crate::game_logic::game_actor_messages::GameAction::PlayerTurn;
 use super::{
-    game_actor_messages::{GameNotificationPlayedCard, UserResponse},
+    game_actor_messages::{GameNotificationPlayedCard, UserResponse, GameNotification},
     GameActor, PlayedCard, Player, TeamWinnerValue, Truco, TurnWinner,
     UserAction, WinnerType,
 };
-const WAITING_TIME: u64 = 15;
+const WAITING_TIME: u64 = 20;
 pub struct TurnManager {
     turn: i32,
     players: VecDeque<Player>,
@@ -179,7 +179,14 @@ impl Turn {
         let players_clone = Arc::new(self.players.clone());
 
         for (position, player) in players_clone.iter().enumerate() {
-            player.ask_player_action(Arc::clone(&self.truco));
+            let player_data = player.get_player_data(Arc::clone(&self.truco));
+            let notification = GameNotification {
+            msg_type: gn,
+            action: PlayerTurn,
+            user_data: player_data,
+            round_data: None,
+            };
+            self.addr_actor.do_send(notification);
 
             let jh = self.handle_user_input(player);
             let result = jh.join().unwrap();

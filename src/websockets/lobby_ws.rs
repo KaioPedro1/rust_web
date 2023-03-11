@@ -85,6 +85,7 @@ impl Handler<Connect> for Lobby {
             let mut redis_con = self.redis.lock().unwrap();
             let serialized_con = redis_con.get_coonections_by_room_id(msg.lobby_id).unwrap();
             let serialized_room = redis_con.get_room_by_id(msg.lobby_id).unwrap();
+            drop(redis_con);
             ctx.address().do_send(RoomNotification {
                 msg_type: MessageRoomType::RoomNotification,
                 action: Update,
@@ -116,13 +117,14 @@ impl Handler<Disconnect> for Lobby {
                         let self_addr = ctx.address();
                         tokio::spawn(async move {
                             let mut new_admin_needed: Option<UserTypes> = None;
-                            if let Ok(is_admin) = database::disconnect_user_and_set_new_admin_if_needed(
-                                msg.id,
-                                new_admin,
-                                msg.room_id,
-                                conn_pull,
-                            )
-                            .await
+                            if let Ok(is_admin) =
+                                database::disconnect_user_and_set_new_admin_if_needed(
+                                    msg.id,
+                                    new_admin,
+                                    msg.room_id,
+                                    conn_pull,
+                                )
+                                .await
                             {
                                 if is_admin {
                                     new_admin_needed = Some(UserTypes::Uuid(new_admin))
@@ -281,7 +283,6 @@ impl Handler<GameSocketInput> for Lobby {
                                     });
                                     println!("Game started for room {:?}", self.games_initialized);
                                 }
-                    
                             }
                             Err(e) => println!("{:?}", e),
                         };

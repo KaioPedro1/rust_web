@@ -3,7 +3,7 @@ use std::sync::mpsc::{self, Receiver, Sender};
 use std::sync::{Arc, Mutex};
 use std::thread;
 
-use super::game_actor_messages::{GameNotification, GameNotificationPlayedCard, UserResponse};
+use super::game_actor_messages::{GameNotification, GameNotificationPlayedCard, UserResponse, GameAction};
 use super::game_actor_messages::{GameNotificationTurnWinner, GameStart};
 use super::Player;
 
@@ -34,7 +34,10 @@ impl Handler<GameStart> for GameActor {
     fn handle(&mut self, _: GameStart, ctx: &mut Self::Context) -> Self::Result {
         let (tx, rx): (Sender<GameSocketInput>, Receiver<GameSocketInput>) = mpsc::channel();
         self.msg_sender_ws = Some(tx);
-        let players = self.players.clone();
+        self.players.iter_mut().enumerate().for_each(|(i, x)| {
+            x.set_player_position(i as i32);
+        });
+        let players: VecDeque<Player> = self.players.clone();
         let addr = ctx.address();
         thread::spawn(move || {
             Game::new(players, addr).play(Arc::new(Mutex::new(rx)));
@@ -75,16 +78,31 @@ impl Handler<GameNotificationPlayedCard> for GameActor {
 impl Handler<GameNotification> for GameActor {
     type Result = ();
 
-    fn handle(&mut self, msg: GameNotification, _: &mut Self::Context) -> Self::Result {
-        let serialized_message = serde_json::to_string(&msg).unwrap();
+    fn handle(&mut self, mut msg: GameNotification, _: &mut Self::Context) -> Self::Result {
+        let serialized_private_message = serde_json::to_string(&msg).unwrap();
+        //private message
         self.players
             .iter()
             .find(|x| x.id == msg.user_data.id)
             .unwrap()
             .ws_addr
-            .do_send(WsMessage(serialized_message));
+            .do_send(WsMessage(serialized_private_message));
+
+        if let GameAction::PlayerTurn = msg.action {
+            msg.user_data.hand = None;
+            let serialized_public_message = serde_json::to_string(&msg).unwrap();
+            //public message
+            for player in &self.players {
+                if player.id != msg.user_data.id {
+                    player
+                        .ws_addr
+                        .do_send(WsMessage(serialized_public_message.clone()));
+                }
+            }
+        }
     }
 }
+
 impl Handler<GameNotificationTurnWinner> for GameActor {
     type Result = ();
 

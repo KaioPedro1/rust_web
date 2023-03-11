@@ -7,14 +7,13 @@ use actix::Recipient;
 
 use uuid::Uuid;
 
-use crate::model::MessageRoomType::GameNotification as gn;
+
+use crate::websockets::WsMessage;
 
 use super::{
-    game_actor_messages::{GameNotification, UserData},
-    Card, PlayerAnswerTruco, Truco, UserAction,
+    game_actor_messages::{ UserData},
+    Card, PlayerAnswerTruco, Truco, UserAction, PlayerPublicData,
 };
-use crate::game_logic::game_actor_messages::GameAction::PlayerTurn;
-use crate::websockets::lobby_messages::WsMessage;
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Player {
@@ -22,6 +21,7 @@ pub struct Player {
     pub hand: Option<Vec<Card>>,
     pub team_id: i32,
     pub ws_addr: Recipient<WsMessage>,
+    pub position: Option<i32>,
 }
 impl Player {
     pub fn new(id: Uuid, team: i32, addr: Recipient<WsMessage>) -> Player {
@@ -30,6 +30,7 @@ impl Player {
             hand: None,
             team_id: team,
             ws_addr: addr,
+            position: None,
         }
     }
     pub fn answer_truco_action(&self, asker: &String) -> PlayerAnswerTruco {
@@ -90,25 +91,16 @@ impl Player {
             return Ok(UserAction::PlayCard(hand[input as usize]));
         }
     }
-    pub fn ask_player_action(&self, truco_state: Arc<Mutex<Truco>>) {
+    pub fn get_player_data(&self, truco_state: Arc<Mutex<Truco>>)->UserData {
         let is_allowed = self.verify_player_allowed_to_truco(truco_state);
 
-        let udata = UserData {
+        UserData {
             id: self.id,
-            hand: self.hand.as_ref().unwrap().to_vec(),
+            hand: Some(self.hand.as_ref().unwrap().to_vec()),
             team_id: self.team_id,
-            position: 0,
+            position: self.position.unwrap() as usize,
             is_allowed_to_truco: is_allowed,
-        };
-        let notification = GameNotification {
-            msg_type: gn,
-            action: PlayerTurn,
-            user_data: udata,
-            round_data: None,
-        };
-        //envia msg
-        let serialized_notification = serde_json::to_string(&notification).unwrap();
-        self.ws_addr.do_send(WsMessage(serialized_notification));
+        }
     }
     pub fn send_message(&self, msg: String) {
         self.ws_addr.do_send(WsMessage(msg));
@@ -118,5 +110,15 @@ impl Player {
     }
     pub fn get_first_card_from_hand(&self) -> Card {
         self.hand.as_ref().unwrap().get(0).unwrap().to_owned()
+    }
+    pub fn set_player_position(&mut self, position: i32) {
+        self.position = Some(position);
+    }
+    pub fn get_player_public_data(&self) -> PlayerPublicData {
+        PlayerPublicData {
+            id: self.id,
+            team_id: self.team_id,
+            position: self.position.unwrap() as usize,
+        }
     }
 }

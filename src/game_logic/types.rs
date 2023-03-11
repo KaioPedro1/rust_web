@@ -1,4 +1,5 @@
 use serde::Serialize;
+use uuid::Uuid;
 
 use super::Player;
 
@@ -39,4 +40,11 @@ pub struct TurnWinner {
     pub team_id: Option<i32>,
     pub is_draw: bool,
     pub winner_position: Option<i32>,
+}
+
+#[derive(Serialize, Debug, Clone)]
+pub struct PlayerPublicData {
+    pub id: Uuid,
+    pub team_id: i32,
+    pub position: usize,
 }

@@ -7,7 +7,7 @@ use actix::Addr;
 use super::game_actor_messages::{
     GameAction, GameNotification, GameNotificationTurnWinner, RoundData, UserData,
 };
-use super::{Deck, GameActor, Player, TeamWinnerValue, TurnManager};
+use super::{Deck, GameActor, Player, TeamWinnerValue, TurnManager, PlayerPublicData};
 use crate::model::MessageRoomType;
 use crate::websockets::lobby_messages::WsMessage;
 use crate::websockets::GameSocketInput;
@@ -102,21 +102,23 @@ impl Game {
     }
 
     fn notify_players_round_start(&mut self) {
-        self.players.iter().enumerate().for_each(|(i, p)| {
+        let players_in_table =  self.get_all_players_public_data();
+        self.players.iter().for_each(|p| {
             let hand = p.hand.as_ref().unwrap();
             let notification = GameNotification {
                 msg_type: MessageRoomType::GameNotification,
                 action: GameAction::RoundStartState,
                 user_data: UserData {
                     id: p.id,
-                    hand: hand.to_vec(),
+                    hand: Some(hand.to_vec()),
                     team_id: p.team_id,
-                    position: i,
+                    position: p.position.unwrap() as usize,
                     is_allowed_to_truco: false,
                 },
                 round_data: Some(RoundData {
                     manilha: self.deck.fliped_card.unwrap(),
                     round: self.round,
+                    players_in_table: players_in_table.clone(),
                 }),
             };
             self.game_actor_addr.do_send(notification);
@@ -142,5 +144,15 @@ impl Game {
             round: self.round,
         };
         self.game_actor_addr.do_send(notification);
+    }
+    fn get_all_players_public_data(&self) -> Vec<PlayerPublicData> {
+        self.players
+            .iter()
+            .map(|p| PlayerPublicData {
+                id: p.id,
+                team_id: p.team_id,
+                position: p.position.unwrap() as usize,
+            })
+            .collect()
     }
 }

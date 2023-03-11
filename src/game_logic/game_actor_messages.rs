@@ -4,7 +4,7 @@ use uuid::Uuid;
 
 use crate::model::MessageRoomType;
 
-use super::{Card, PlayedCard, TeamWinnerValue};
+use super::{Card, PlayedCard, TeamWinnerValue, Player, PlayerPublicData};
 
 #[derive(Message)]
 #[rtype(result = "()")]
@@ -37,7 +37,7 @@ pub enum GameAction {
 #[derive(Debug, Serialize)]
 pub struct UserData {
     pub id: Uuid,
-    pub hand: Vec<Card>,
+    pub hand: Option<Vec<Card>>,
     pub team_id: i32,
     pub position: usize,
     pub is_allowed_to_truco: bool,
@@ -46,6 +46,7 @@ pub struct UserData {
 pub struct RoundData {
     pub manilha: Card,
     pub round: u64,
+    pub players_in_table: Vec<PlayerPublicData>,
 }
 #[derive(Message, Serialize)]
 #[rtype(result = "()")]
@@ -62,7 +63,7 @@ impl GameNotificationPlayedCard {
             msg_type: MessageRoomType::GameNotification,
             action: GameAction::PlayerPlayedCard,
             user_id: player_data.player.id,
-            position: player_data.position_in_table,
+            position: player_data.player.position.unwrap() as usize,
             card: player_data.card,
         }
     }
