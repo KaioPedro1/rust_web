@@ -32,7 +32,7 @@ pub async fn lobby_post(
     redis: Data<Mutex<RedisState>>,
     auth: Authenticated,
 ) -> HttpResponse {
-    let (user_uuid, name) = match auth.parse() {
+    let (user_uuid, name, avatar_id) = match auth.parse() {
         Some(sucess) => sucess,
         None => return HttpResponse::InternalServerError().finish(),
     };
@@ -52,6 +52,7 @@ pub async fn lobby_post(
             let user = ConnectionMessage {
                 user_id: user_uuid,
                 room_id: room.id,
+                avatar_id,
                 is_admin: true,
                 name,
             };

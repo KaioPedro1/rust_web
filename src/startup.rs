@@ -31,6 +31,7 @@ pub fn run(
     let lobby_ws_server = web::Data::new(Lobby::new(redis.clone()).start());
     let jwt_data = web::Data::new(jwt);
     redis_utils::create_channels_and_subscribe(pub_sub, lobby_ws_server.clone());
+    
     let server: Server = HttpServer::new(move || {
         App::new()
             .wrap(Logger::default())

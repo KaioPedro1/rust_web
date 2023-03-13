@@ -3,7 +3,9 @@ use std::sync::mpsc::{self, Receiver, Sender};
 use std::sync::{Arc, Mutex};
 use std::thread;
 
-use super::game_actor_messages::{GameNotification, GameNotificationPlayedCard, UserResponse, GameAction};
+use super::game_actor_messages::{
+    GameAction, GameNotification, GameNotificationPlayedCard, UserResponse,
+};
 use super::game_actor_messages::{GameNotificationTurnWinner, GameStart};
 use super::Player;
 

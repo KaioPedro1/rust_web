@@ -1,7 +1,7 @@
 use crate::{
     configuration::Jwt,
     database,
-    model::{Claims, User, UserName},
+    model::{Claims, User, UserName, AvatarId},
 };
 use actix_files as fs;
 use actix_web::cookie::time::Duration as dr;
@@ -18,13 +18,15 @@ use uuid::Uuid;
 
 pub fn validade_and_build(form: FormData) -> Result<User, String> {
     let name = UserName::parse(form.name)?;
+    let avatar_id = AvatarId::parse(form.avatar)?;
     let id = Uuid::new_v4();
-    Ok(User { name, id })
+    Ok(User { name, id, avatar_id})
 }
 
 #[derive(serde::Deserialize, Debug)]
 pub struct FormData {
     pub name: String,
+    pub avatar: i32
 }
 
 pub async fn root_get() -> Result<fs::NamedFile, Error> {
@@ -46,6 +48,7 @@ pub async fn root_post(
             let claims = Claims {
                 sub: register.id.to_string(),
                 name: register.name.0.clone(),
+                avatar_id: register.avatar_id.0,
                 exp: (Utc::now() + Duration::hours(jwt_data.expiration)).timestamp() as usize,
             };
             let token = encode(
@@ -71,6 +74,7 @@ pub async fn root_post(
                 .path(url_to_redirect)
                 .max_age(dr::hours(60))
                 .finish();
+
             HttpResponse::Found()
                 .content_type(ContentType::html())
                 .append_header((LOCATION, url_to_redirect))
@@ -79,6 +83,6 @@ pub async fn root_post(
                 .cookie(name_cookie)
                 .finish()
         }
-        Err(_) => HttpResponse::BadRequest().finish(),
+        Err(e) => HttpResponse::BadRequest().body(e),
     }
 }

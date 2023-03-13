@@ -90,13 +90,14 @@ impl FromRequest for Authenticated {
 }
 
 impl Authenticated {
-    pub fn parse(&self) -> Option<(Uuid, String)> {
+    pub fn parse(&self) -> Option<(Uuid, String, i32)> {
         let user_id = self.0.sub.clone();
 
         match Uuid::parse_str(&user_id) {
             Ok(uuid) => {
                 let name = &self.0.name;
-                Some((uuid, name.to_string()))
+                let avatar_id = &self.0.avatar_id;
+                Some((uuid, name.to_string(), *avatar_id))
             }
             Err(_) => None,
         }

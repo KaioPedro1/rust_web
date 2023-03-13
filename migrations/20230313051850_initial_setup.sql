@@ -1,8 +1,10 @@
+-- Add migration script here
 CREATE TABLE Users(
     id uuid NOT NULL,
     PRIMARY KEY(id),
     name TEXT NOT NULL,
-    subscribed_at timestamptz NOT NULL
+    subscribed_at timestamptz NOT NULL,
+    avatar_id INT NOT NULL
 );
 
 CREATE TABLE Rooms (

@@ -33,7 +33,7 @@ pub async fn room_get(
     redis: Data<Mutex<RedisState>>,
     auth: Authenticated,
 ) -> HttpResponse {
-    let (user_uuid, name) = match auth.parse() {
+    let (user_uuid, name, avatar_id) = match auth.parse() {
         Some(sucess) => sucess,
         None => return HttpResponse::InternalServerError().finish(),
     };
@@ -63,6 +63,7 @@ pub async fn room_get(
                             room_id: room_uuid,
                             is_admin: false,
                             name: name.clone(),
+                            avatar_id,
                         })),
                         sender_uuid: user_uuid,
                     })
@@ -73,6 +74,7 @@ pub async fn room_get(
                             room_id: room_uuid,
                             is_admin: false,
                             name,
+                            avatar_id,
                         })
                         .unwrap();
                     redis_unlock.publish_connection_to_lobby(message).unwrap();
@@ -99,7 +101,7 @@ pub async fn room_delete(
     redis: Data<Mutex<RedisState>>,
     auth: Authenticated,
 ) -> HttpResponse {
-    let (user_uuid, _) = match auth.parse() {
+    let (user_uuid, _, _) = match auth.parse() {
         Some(sucess) => sucess,
         None => return HttpResponse::InternalServerError().finish(),
     };

@@ -100,7 +100,7 @@ pub async fn connections_initial_state(
 ) -> Result<Vec<ConnectionMessage>, sqlx::Error> {
     sqlx::query_as!(
         ConnectionMessage,
-        r#"SELECT connections.*, users.name 
+        r#"SELECT connections.*, users.name, users.avatar_id
         FROM users, connections 
         WHERE users.id = connections.user_id"#
     )

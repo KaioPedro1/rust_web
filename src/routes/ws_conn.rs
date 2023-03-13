@@ -33,7 +33,7 @@ pub async fn ws_room_get(
     info: web::Path<RoomPath>,
     auth: Authenticated,
 ) -> HttpResponse {
-    let (user_uuid, _) = match auth.parse() {
+    let (user_uuid, _,_) = match auth.parse() {
         Some(sucess) => sucess,
         None => return HttpResponse::InternalServerError().finish(),
     };
