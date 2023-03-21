@@ -1,4 +1,4 @@
-use crate::model::{User, UserName, AvatarId};
+use crate::model::{AvatarId, User, UserName};
 use actix_web::web;
 use sqlx::types::chrono::Utc;
 use sqlx::PgPool;

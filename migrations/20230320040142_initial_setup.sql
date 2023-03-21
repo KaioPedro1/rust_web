@@ -1,4 +1,3 @@
--- Add migration script here
 CREATE TABLE Users(
     id uuid NOT NULL,
     PRIMARY KEY(id),
@@ -25,6 +24,7 @@ CREATE TABLE Connections (
     user_id uuid NOT NULL,
     room_id uuid NOT NULL,
     is_admin BOOLEAN NOT NULL,
+    position INT NOT NULL,
     FOREIGN KEY (user_id) REFERENCES Users(id),
     FOREIGN KEY (room_id) REFERENCES Rooms(id),
     PRIMARY KEY (user_id, room_id)

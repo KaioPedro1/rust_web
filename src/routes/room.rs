@@ -3,7 +3,7 @@ use std::sync::Mutex;
 use crate::{
     database,
     middleware::Authenticated,
-    model::{self, ConnectionMessage, MessageRoomType, ActionRoomType, RoomTypes},
+    model::{self, ActionRoomType, ConnectionMessage, MessageRoomType, RoomTypes},
     redis_utils::RedisState,
     utils::{open_file_return_http_response_with_cache, FilesOptions},
     websockets::{
@@ -25,11 +25,16 @@ use uuid::Uuid;
 pub struct RoomPath {
     pub room_uuid: Uuid,
 }
+#[derive(Deserialize)]
 
-pub async fn room_get(
-    req: HttpRequest,
+pub struct UserInput {
+    pub user_uuid: Uuid,
+    pub position: i32,
+}
+pub async fn room_post(
     connection: web::Data<PgPool>,
     info: web::Path<RoomPath>,
+    user_input: web::Json<UserInput>,
     redis: Data<Mutex<RedisState>>,
     auth: Authenticated,
 ) -> HttpResponse {
@@ -41,7 +46,7 @@ pub async fn room_get(
     if let Err(e) =
         database::check_room_exist_in_available_rooms_table(room_uuid, connection.clone()).await
     {
-        println!("Error: {}", e);
+        println!("Error: room does not exist in available rooms table {}", e);
         return HttpResponse::TemporaryRedirect()
             .append_header((LOCATION, "/lobby"))
             .finish();
@@ -49,9 +54,16 @@ pub async fn room_get(
 
     match database::get_connection_by_room_and_user(room_uuid, user_uuid, connection.clone()).await
     {
-        Ok(_) => open_file_return_http_response_with_cache(&req, FilesOptions::Room).await,
+        Ok(_) => HttpResponse::Ok().finish(),
         Err(_) => {
-            match database::insert_connection_db(room_uuid, user_uuid, connection.clone()).await {
+            match database::insert_connection_db(
+                room_uuid,
+                user_uuid,
+                user_input.position,
+                connection.clone(),
+            )
+            .await
+            {
                 Ok(_) => {
                     let mut redis_unlock = redis.lock().unwrap();
                     let message = serde_json::to_string(&LobbyNotification {
@@ -64,6 +76,7 @@ pub async fn room_get(
                             is_admin: false,
                             name: name.clone(),
                             avatar_id,
+                            position: user_input.position,
                         })),
                         sender_uuid: user_uuid,
                     })
@@ -75,20 +88,19 @@ pub async fn room_get(
                             is_admin: false,
                             name,
                             avatar_id,
+                            position: user_input.position,
                         })
                         .unwrap();
                     redis_unlock.publish_connection_to_lobby(message).unwrap();
 
-                    HttpResponse::Ok()
-                        .append_header(("Cache-control", "no-cache"))
-                        .body(include_str!("../../static/room.html"))
+                    HttpResponse::Ok().finish()
                 }
                 Err(e) => {
-                    println!("Error: {}", e);
+                    println!("Error: unable to add in conn table {}", e);
                     HttpResponse::TemporaryRedirect()
-                    .append_header((LOCATION, "/lobby"))
-                    .finish()
-                },
+                        .append_header((LOCATION, "/lobby"))
+                        .finish()
+                }
             }
         }
     }
@@ -136,4 +148,20 @@ pub async fn room_delete(
         }
         Err(_) => HttpResponse::BadRequest().body("Unable to found user and room in connection"),
     }
+}
+
+pub async fn room_get(
+    req: HttpRequest,
+    connection: web::Data<PgPool>,
+    info: web::Path<RoomPath>,
+    lobby_srv: Data<Addr<Lobby>>,
+    redis: Data<Mutex<RedisState>>,
+    auth: Authenticated,
+) -> HttpResponse {
+    let (user_uuid, _, _) = match auth.parse() {
+        Some(sucess) => sucess,
+        None => return HttpResponse::InternalServerError().finish(),
+    };
+    let room_uuid = info.room_uuid;
+    open_file_return_http_response_with_cache(&req, FilesOptions::Room).await
 }

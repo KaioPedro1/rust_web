@@ -3,7 +3,8 @@ use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
 use crate::model::{
-    ActionLobbyType, ActionRoomType, MessageLobbyType, MessageRoomType, RoomTypes, UserTypes, ConnectionMessage,
+    ActionLobbyType, ActionRoomType, ConnectionMessage, MessageLobbyType, MessageRoomType,
+    RoomTypes, UserTypes,
 };
 
 //WsConn responds to this to pipe it through to the actual client
@@ -62,8 +63,8 @@ pub enum GameSocketAction {
     StartGame,
     PlayerInput,
 }
-#[derive(Serialize,Deserialize, Debug)]
-pub enum UserRoomType{
+#[derive(Serialize, Deserialize, Debug)]
+pub enum UserRoomType {
     User(Uuid),
     UserVec(Vec<ConnectionMessage>),
 }

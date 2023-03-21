@@ -7,7 +7,7 @@ use actix::Addr;
 use super::game_actor_messages::{
     GameAction, GameNotification, GameNotificationTurnWinner, RoundData, UserData,
 };
-use super::{Deck, GameActor, Player, TeamWinnerValue, TurnManager, PlayerPublicData};
+use super::{Deck, GameActor, Player, PlayerPublicData, TeamWinnerValue, TurnManager};
 use crate::model::MessageRoomType;
 use crate::websockets::lobby_messages::WsMessage;
 use crate::websockets::GameSocketInput;
@@ -102,7 +102,7 @@ impl Game {
     }
 
     fn notify_players_round_start(&mut self) {
-        let players_in_table =  self.get_all_players_public_data();
+        let players_in_table = self.get_all_players_public_data();
         self.players.iter().for_each(|p| {
             let hand = p.hand.as_ref().unwrap();
             let notification = GameNotification {

@@ -6,6 +6,7 @@ pub struct ConnectionTuple {
     pub user_id: Uuid,
     pub room_id: Uuid,
     pub is_admin: bool,
+    pub position: i32,
 }
 #[derive(Debug, Serialize, Deserialize, PartialEq)]
 pub struct User {
@@ -53,7 +54,7 @@ impl AsRef<i32> for AvatarId {
         &self.0
     }
 }
-    
+
 //TODO: trocar numeros de players para u8 e implementar validação de todos os dados necessarios abaixo para inclusão no banco de dados
 #[derive(Debug, Serialize)]
 pub struct AvailableRooms {
@@ -97,7 +98,7 @@ impl RoomCapacity {
         let is_beneath_floor = n < 2;
         let is_not_even = n % 2 != 0;
 
-        if is_above_ceil || is_beneath_floor || is_not_even{
+        if is_above_ceil || is_beneath_floor || is_not_even {
             Err(format!("{} is not in the interval (2,24).", n))
         } else {
             Ok(Self(n))
@@ -138,7 +139,7 @@ impl RoomTypes {
         }
     }
 }
-    
+
 #[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]
 pub enum UserTypes {
     Uuid(Uuid),
@@ -164,6 +165,7 @@ pub struct ConnectionMessage {
     pub is_admin: bool,
     pub name: String,
     pub avatar_id: i32,
+    pub position: i32,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]

@@ -6,15 +6,14 @@ use std::{
     time::Duration,
 };
 
-use actix::Addr;
+use super::{
+    game_actor_messages::{GameNotification, GameNotificationPlayedCard, UserResponse},
+    GameActor, PlayedCard, Player, TeamWinnerValue, Truco, TurnWinner, UserAction, WinnerType,
+};
+use crate::game_logic::game_actor_messages::GameAction::PlayerTurn;
 use crate::model::MessageRoomType::GameNotification as gn;
 use crate::websockets::GameSocketInput;
-use crate::game_logic::game_actor_messages::GameAction::PlayerTurn;
-use super::{
-    game_actor_messages::{GameNotificationPlayedCard, UserResponse, GameNotification},
-    GameActor, PlayedCard, Player, TeamWinnerValue, Truco, TurnWinner,
-    UserAction, WinnerType,
-};
+use actix::Addr;
 const WAITING_TIME: u64 = 20;
 pub struct TurnManager {
     turn: i32,
@@ -181,10 +180,10 @@ impl Turn {
         for (position, player) in players_clone.iter().enumerate() {
             let player_data = player.get_player_data(Arc::clone(&self.truco));
             let notification = GameNotification {
-            msg_type: gn,
-            action: PlayerTurn,
-            user_data: player_data,
-            round_data: None,
+                msg_type: gn,
+                action: PlayerTurn,
+                user_data: player_data,
+                round_data: None,
             };
             self.addr_actor.do_send(notification);
 
@@ -224,7 +223,6 @@ impl Turn {
         let addrclone = Arc::clone(&self.addr_actor);
         let trucoclone = Arc::clone(&self.truco);
 
-        
         thread::spawn(move || {
             let msg_rec_clone = msg_rec_clone.lock().unwrap();
             let duration = Duration::from_secs(WAITING_TIME);

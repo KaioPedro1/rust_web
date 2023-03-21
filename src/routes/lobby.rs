@@ -10,7 +10,7 @@ use uuid::Uuid;
 use crate::{
     database,
     middleware::Authenticated,
-    model::{self, AvailableRooms, ConnectionMessage, RoomCapacity, Room, RoomName},
+    model::{self, AvailableRooms, ConnectionMessage, Room, RoomCapacity, RoomName},
     redis_utils::RedisState,
     utils::{open_file_return_http_response_with_cache, FilesOptions},
     websockets::lobby_messages::LobbyNotification,
@@ -55,6 +55,7 @@ pub async fn lobby_post(
                 avatar_id,
                 is_admin: true,
                 name,
+                position: 0,
             };
             let serialized_notification = serde_json::to_string(&LobbyNotification {
                 msg_type: crate::model::MessageLobbyType::UpdateRoom,

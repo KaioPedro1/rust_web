@@ -1,4 +1,4 @@
-use crate::model::{AvailableRooms, RoomCapacity, Room, RoomName};
+use crate::model::{AvailableRooms, Room, RoomCapacity, RoomName};
 use actix_web::web;
 use sqlx::types::chrono::Utc;
 use sqlx::{PgPool, Pool, Postgres};
@@ -32,10 +32,11 @@ pub async fn insert_room_and_available_room_db(
     .execute(&mut tx)
     .await?;
     sqlx::query!(
-        r#"INSERT INTO connections (user_id, room_id, is_admin) 
-        VALUES ($1, $2, $3)"#,
+        r#"INSERT INTO connections (user_id, room_id, position, is_admin) 
+        VALUES ($1, $2, $3, $4)"#,
         user_id,
         new_room.id,
+        0,
         true,
     )
     .execute(&mut tx)
@@ -57,7 +58,6 @@ pub async fn check_room_exist_in_available_rooms_table(
     .fetch_one(connection.get_ref())
     .await?;
     Ok(())
-
 }
 
 pub async fn initial_rooms_state(pool: Pool<Postgres>) -> Result<Vec<Room>, sqlx::Error> {

@@ -9,14 +9,16 @@ use crate::model::{ConnectionMessage, ConnectionTuple};
 pub async fn insert_connection_db(
     room_uuid: Uuid,
     user_uuid: Uuid,
+    position: i32,
     connection: web::Data<PgPool>,
 ) -> Result<(), sqlx::Error> {
     sqlx::query!(
-        r#"INSERT INTO connections (user_id, room_id, is_admin) 
-            VALUES ($1, $2, $3)"#,
+        r#"INSERT INTO connections (user_id, room_id, is_admin, position) 
+            VALUES ($1, $2, $3, $4)"#,
         user_uuid,
         room_uuid,
-        false
+        false,
+        position
     )
     .execute(connection.get_ref())
     .await?;
@@ -72,7 +74,7 @@ pub async fn disconnect_user_and_set_new_admin_if_needed(
     )
     .fetch_one(&mut tx)
     .await?;
-    
+
     if user.is_admin {
         sqlx::query!(
             r#"UPDATE Connections SET is_admin=true WHERE user_id= $1 AND room_id = $2"#,

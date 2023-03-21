@@ -1,7 +1,7 @@
 use crate::{
     configuration::Jwt,
     database,
-    model::{Claims, User, UserName, AvatarId},
+    model::{AvatarId, Claims, User, UserName},
 };
 use actix_files as fs;
 use actix_web::cookie::time::Duration as dr;
@@ -20,13 +20,17 @@ pub fn validade_and_build(form: FormData) -> Result<User, String> {
     let name = UserName::parse(form.name)?;
     let avatar_id = AvatarId::parse(form.avatar)?;
     let id = Uuid::new_v4();
-    Ok(User { name, id, avatar_id})
+    Ok(User {
+        name,
+        id,
+        avatar_id,
+    })
 }
 
 #[derive(serde::Deserialize, Debug)]
 pub struct FormData {
     pub name: String,
-    pub avatar: i32
+    pub avatar: i32,
 }
 
 pub async fn root_get() -> Result<fs::NamedFile, Error> {
@@ -74,13 +78,17 @@ pub async fn root_post(
                 .path(url_to_redirect)
                 .max_age(dr::hours(60))
                 .finish();
-
+            let avatar_cookie = Cookie::build("avatar", register.avatar_id.0.to_string())
+                .path(url_to_redirect)
+                .max_age(dr::hours(60))
+                .finish();
             HttpResponse::Found()
                 .content_type(ContentType::html())
                 .append_header((LOCATION, url_to_redirect))
                 .cookie(jwt_cookie)
                 .cookie(uuid_cookie)
                 .cookie(name_cookie)
+                .cookie(avatar_cookie)
                 .finish()
         }
         Err(e) => HttpResponse::BadRequest().body(e),

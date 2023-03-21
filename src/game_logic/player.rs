@@ -7,12 +7,10 @@ use actix::Recipient;
 
 use uuid::Uuid;
 
-
 use crate::websockets::WsMessage;
 
 use super::{
-    game_actor_messages::{ UserData},
-    Card, PlayerAnswerTruco, Truco, UserAction, PlayerPublicData,
+    game_actor_messages::UserData, Card, PlayerAnswerTruco, PlayerPublicData, Truco, UserAction,
 };
 
 #[derive(Debug, Clone, PartialEq)]
@@ -77,13 +75,14 @@ impl Player {
         &self,
         input: i32,
         state: Arc<Mutex<Truco>>,
-    ) -> Result<UserAction, String> { 
+    ) -> Result<UserAction, String> {
         let hand = self.hand.as_ref().unwrap();
         let limit = hand.len();
         let is_allowed = self.verify_player_allowed_to_truco(state);
-       
 
-        if ((input >= limit.try_into().unwrap() || input < 0) && input != 3)|| (input == 3 && !is_allowed) {
+        if ((input >= limit.try_into().unwrap() || input < 0) && input != 3)
+            || (input == 3 && !is_allowed)
+        {
             Err("Invalid input".to_string())
         } else if input == 3 && is_allowed {
             return Ok(UserAction::AskForTruco);
@@ -91,7 +90,7 @@ impl Player {
             return Ok(UserAction::PlayCard(hand[input as usize]));
         }
     }
-    pub fn get_player_data(&self, truco_state: Arc<Mutex<Truco>>)->UserData {
+    pub fn get_player_data(&self, truco_state: Arc<Mutex<Truco>>) -> UserData {
         let is_allowed = self.verify_player_allowed_to_truco(truco_state);
 
         UserData {

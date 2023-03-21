@@ -4,7 +4,7 @@ use uuid::Uuid;
 
 use crate::model::MessageRoomType;
 
-use super::{Card, PlayedCard, TeamWinnerValue, Player, PlayerPublicData};
+use super::{Card, PlayedCard, PlayerPublicData, TeamWinnerValue};
 
 #[derive(Message)]
 #[rtype(result = "()")]

@@ -4,7 +4,8 @@ use uuid::Uuid;
 
 use crate::{
     database,
-    model::{ConnectionMessage, Room, UserTypes}, websockets::Disconnect,
+    model::{ConnectionMessage, Room, UserTypes},
+    websockets::Disconnect,
 };
 use redis::{Commands, Connection, RedisError};
 use sqlx::{Pool, Postgres};
@@ -138,21 +139,27 @@ impl RedisState {
         }
         Ok(())
     }
-    pub fn remove_connection_publish_user(&mut self,data:Disconnect, new_admin:Option<UserTypes>, parsed_msg:String){
-        let r1= self.remove_connection(data.id.to_string() + "/" + &data.room_id.to_string());
+    pub fn remove_connection_publish_user(
+        &mut self,
+        data: Disconnect,
+        new_admin: Option<UserTypes>,
+        parsed_msg: String,
+    ) {
+        let r1 = self.remove_connection(data.id.to_string() + "/" + &data.room_id.to_string());
         let r3 = self.publish_connection_to_lobby(parsed_msg);
-        if r1.is_err() || r3.is_err(){
+        if r1.is_err() || r3.is_err() {
             println!("Error on remove_connection_update_admin_publish_user");
         };
-        if let Some(update_admin) = new_admin{
-            match update_admin{
-                UserTypes::Uuid(uuid) =>{
-                    if let Err(e)= self.update_admin(data.room_id, uuid){
-                    println!("Error on update_admin: {}", e);
-                }},
-                _=> println!("Error on update_admin: new_admin is not Uuid")
+        if let Some(update_admin) = new_admin {
+            match update_admin {
+                UserTypes::Uuid(uuid) => {
+                    if let Err(e) = self.update_admin(data.room_id, uuid) {
+                        println!("Error on update_admin: {}", e);
+                    }
+                }
+                _ => println!("Error on update_admin: new_admin is not Uuid"),
             }
-       }
+        }
     }
     pub fn get_connection_by_id(
         &mut self,
@@ -165,7 +172,6 @@ impl RedisState {
         let parsed_data: ConnectionMessage = serde_json::from_str(&conn_data).unwrap();
         Ok(parsed_data)
     }
-
 }
 
 pub async fn set_initial_redis_state(
@@ -188,4 +194,3 @@ pub async fn set_initial_redis_state(
     }
     Ok(())
 }
-
